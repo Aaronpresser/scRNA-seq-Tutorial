@@ -1,0 +1,784 @@
+---
+title: 'Lesniak Lab (Aaron Presser): Peng''s siRNA therapy - Seurat script'
+output: html_document
+---
+
+# Run this first
+```{r}
+GeneCounter <- function(
+  object,
+  pattern = NULL,
+  features = NULL,
+  col.name = NULL,
+  assay = NULL
+) {
+  assay <- assay %||% DefaultAssay(object = object)
+  if (!is.null(x = features) && !is.null(x = pattern)) {
+    warning("Both pattern and features provided. Pattern is being ignored.")
+  }
+  features <- features %||% grep(pattern = pattern, x = rownames(x = object[[assay]]), value = TRUE)
+  percent.featureset <- colSums(x = GetAssayData(object = object, assay = assay, slot = "counts")[features, , drop = FALSE])
+  if (!is.null(x = col.name)) {
+    object <- AddMetaData(object = object, metadata = percent.featureset, col.name = col.name)
+    return(object)
+  }
+  return(percent.featureset)
+}
+```
+
+```{r}
+BiocManager::install("Seurat")
+```
+
+
+# Load data and basic data cleaning - Run this
+```{r}
+#library(Nebulosa)
+library(Seurat)
+library(ggplot2)
+library(dplyr)
+library(cowplot)
+library(RCurl)
+library(AnnotationHub)
+library(ensembldb)
+library(metap)
+library(glmGamPoi)
+library(DropletUtils)
+library(scran)
+library(SingleR)
+library(celldex)
+library(purrr)
+library(tibble)
+# library(SeuratDisk)
+# library(cowplot)
+# library(pagoda2)
+# library(loomR)
+
+CTRL.data <- Read10X("/projects/p31559/Peng_scRNA_data/cellranger/Control_GEX/outs/filtered_feature_bc_matrix", gene.column=2, unique.features=TRUE)
+TREAT.data <- Read10X("/projects/p31559/Peng_scRNA_data/cellranger/Treatment_GEX/outs/filtered_feature_bc_matrix", gene.column=2, unique.features=TRUE)
+
+CTRL <- CreateSeuratObject(counts=CTRL.data, project="CTRL", min.cells=3, min.features=200)
+TREAT <- CreateSeuratObject(counts=TREAT.data, project="TREAT", min.cells=3, min.features=200)
+
+#CTRL[["human.percent.mt"]] <- PercentageFeatureSet(CTRL, pattern="^GRCh38-mt-")
+CTRL[["mouse.percent.mt"]] <- PercentageFeatureSet(CTRL, pattern="mt-")
+VlnPlot(CTRL, features=c("nFeature_RNA", "nCount_RNA", "human.percent.mt"), ncol=3, log=TRUE)
+#TREAT[["human.percent.mt"]] <- PercentageFeatureSet(TREAT, pattern="^GRCh38-mt-")
+TREAT[["mouse.percent.mt"]] <- PercentageFeatureSet(TREAT, pattern="mt-")
+VlnPlot(TREAT, features=c("nFeature_RNA", "nCount_RNA", "mouse.percent.mt"), ncol=3, log=TRUE)
+
+
+
+CTRL[["MT_genes"]] <- GeneCounter(CTRL, pattern="mt-")
+TREAT[["MT_genes"]] <- GeneCounter(TREAT, pattern="mt-")
+
+CTRL[["Actb"]] <- GeneCounter(CTRL, pattern="Actb")
+TREAT[["Actb"]] <- GeneCounter(TREAT, pattern="Actb")
+
+CTRL[["Foxp3"]] <- GeneCounter(CTRL, pattern="Foxp3")
+TREAT[["Foxp3"]] <- GeneCounter(TREAT, pattern="Foxp3")
+
+CTRL[["Odc1"]] <- GeneCounter(CTRL, pattern="Odc1")
+TREAT[["Odc1"]] <- GeneCounter(TREAT, pattern="Odc1")
+
+CTRL[["Cd3d"]] <- GeneCounter(CTRL, pattern="Cd3d")
+TREAT[["Cd3d"]] <- GeneCounter(TREAT, pattern="Cd3d")
+
+min_genes <- 200
+max_genes <- 8000
+min_reads <- 250
+max_reads <- 53000
+
+
+FeatureScatter(CTRL, feature1="nCount_RNA", feature2="nFeature_RNA") + scale_y_log10() + scale_x_log10() +
+  geom_hline(yintercept=min_genes) +
+  geom_hline(yintercept=max_genes) +
+  geom_vline(xintercept=min_reads) +
+  geom_vline(xintercept=max_reads)
+
+CTRL <- subset(x=CTRL, subset=nFeature_RNA > min_genes & nFeature_RNA < max_genes & nCount_RNA > min_reads & nCount_RNA < max_reads & mouse.percent.mt < 9 & mouse.percent.mt > 0)
+
+TREAT <- subset(x=TREAT, subset=nFeature_RNA > min_genes & nFeature_RNA < max_genes & nCount_RNA > min_reads & nCount_RNA < max_reads & mouse.percent.mt < 9 & mouse.percent.mt > 0)
+
+#mouse_CTRL <- CTRL[grepl(pattern="mm10---", rownames(CTRL[["RNA"]]))]
+#human_CTRL <- CTRL[grepl(pattern="GRCh38-", rownames(CTRL[["RNA"]]))]
+#mouse_TREAT <- TREAT[grepl(pattern="mm10---", rownames(TREAT[["RNA"]]))]
+#human_TREAT <- TREAT[grepl(pattern="GRCh38-", rownames(TREAT[["RNA"]]))]
+
+#human_CTRL <- subset(human_CTRL, nCount_RNA > 0)
+#human_TREAT <- subset(human_TREAT, nCount_RNA > 0)
+```
+
+
+# Get Cell Cycle markers - look at CCMs in CTRL and TREAT
+```{r}
+cc_file <- getURL("https://raw.githubusercontent.com/hbc/tinyatlas/master/cell_cycle/Mus_musculus.csv")
+cell_cycle_genes <- read.csv(text=cc_file)
+
+# Connect to AnnotationHub
+ah <- AnnotationHub()
+# Access to Ensembl database for organism
+ahDb <- query(ah,
+              pattern = c("Mus Musculus", "EnsDb"),
+              ignore.case=TRUE)
+# Acquire the latest annotation files
+id <- ahDb %>%
+  mcols() %>%
+  rownames() %>%
+  tail(n=1)
+# Download the appropriate Ensembld database
+edb <- ah[[id]]
+# Extract gene-level information from database
+annotations <- genes(edb,
+                     return.type="data.frame")
+# Select annotations of interest
+annotations <- annotations %>%
+  dplyr::select(gene_id, gene_name, seq_name, gene_biotype, description)
+# Get gene names for Ensembl IDs for each gene
+cell_cycle_markers <- dplyr::left_join(cell_cycle_genes, annotations, by = c("geneID" = "gene_id"))
+
+# Acquire the S phase genes
+s_genes <- cell_cycle_markers %>%
+  dplyr::filter(phase=="S") %>%
+  pull("gene_name")
+# Acquire the G2M phase genes
+g2m_genes <- cell_cycle_markers %>%
+  dplyr::filter(phase=="G2/M") %>%
+  pull("gene_name")
+```
+```{r}
+CTRL <- NormalizeData(CTRL)
+
+CTRL <- CellCycleScoring(CTRL, s.features=s_genes, g2m.features=g2m_genes, set.ident=TRUE)
+
+CTRL <- FindVariableFeatures(CTRL, selection.method="vst", nfeatures=3000, verbose=FALSE)
+CTRL <- ScaleData(CTRL)
+CTRL <- RunPCA(CTRL)
+
+
+TREAT <- NormalizeData(TREAT)
+
+TREAT <- CellCycleScoring(TREAT, s.features=s_genes, g2m.features=g2m_genes, set.ident=TRUE)
+
+TREAT <- FindVariableFeatures(TREAT, selection.method="vst", nfeatures=3000, verbose=FALSE)
+TREAT <- ScaleData(TREAT)
+TREAT <- RunPCA(TREAT)
+```
+
+
+```{r
+cc_file <- getURL("https://raw.githubusercontent.com/hbc/tinyatlas/master/cell_cycle/Homo_sapiens.csv")
+cell_cycle_genes <- read.csv(text=cc_file)
+
+# Connect to AnnotationHub
+ah <- AnnotationHub()
+# Access to Ensembl database for organism
+ahDb <- query(ah,
+              pattern = c("Homo Sapiens", "EnsDb"),
+              ignore.case=TRUE)
+# Acquire the latest annotation files
+id <- ahDb %>%
+  mcols() %>%
+  rownames() %>%
+  tail(n=1)
+# Download the appropriate Ensembld database
+edb <- ah[[id]]
+# Extract gene-level information from database
+annotations <- genes(edb,
+                     return.type="data.frame")
+# Select annotations of interest
+annotations <- annotations %>%
+  dplyr::select(gene_id, gene_name, seq_name, gene_biotype, description)
+# Get gene names for Ensembl IDs for each gene
+cell_cycle_markers <- dplyr::left_join(cell_cycle_genes, annotations, by = c("geneID" = "gene_id"))
+
+# Acquire the S phase genes
+s_genes <- cell_cycle_markers %>%
+  dplyr::filter(phase=="S") %>%
+  pull("gene_name")
+# Acquire the G2M phase genes
+g2m_genes <- cell_cycle_markers %>%
+  dplyr::filter(phase=="G2/M") %>%
+  pull("gene_name")
+```
+```{r
+human_CTRL <- NormalizeData(human_CTRL)
+
+human_CTRL <- FindVariableFeatures(human_CTRL, selection.method="vst", nfeatures=3000, verbose=FALSE)
+human_CTRL <- ScaleData(human_CTRL)
+human_CTRL <- RunPCA(human_CTRL)
+
+human_TREAT <- NormalizeData(human_TREAT)
+
+human_TREAT <- FindVariableFeatures(human_TREAT, selection.method="vst", nfeatures=3000, verbose=FALSE)
+human_TREAT <- ScaleData(human_TREAT)
+human_TREAT <- RunPCA(human_TREAT)
+```
+
+```{r
+CTRL <- merge(mouse_CTRL, human_CTRL)
+TREAT <- merge(mouse_TREAT, human_TREAT)
+```
+
+
+# MT and MT/CCDiff cell cycle PCA plots
+```{r
+CTRL[["groups"]] <- "Control"
+TREAT[["groups"]] <- "Treatment"
+combined <- merge(CTRL, TREAT)
+
+combined_seurat_phase <- CellCycleScoring(combined, s.features=s_genes, g2m.features=g2m_genes, set.ident=TRUE)
+combined_seurat_phase <- FindVariableFeatures(combined_seurat_phase, selection.method="vst", nfeatures=3000, verbose=FALSE)
+
+combined_seurat_phase$CC.Difference <- combined_seurat_phase$S.Score - combined_seurat_phase$G2M.Score
+
+combined_seurat_phase <- ScaleData(combined_seurat_phase, vars.to.regress=c("percent.mt"))
+combined_seurat_phase <- RunPCA(combined_seurat_phase)
+MT_plot <- DimPlot(combined_seurat_phase, dims=c(1,2), reduction="pca", combine=TRUE, group.by="Phase", split.by="groups")
+
+pdf(file="MT_plot.pdf", width=10, height=8)
+plot_grid(MT_plot)
+DimPlot(combined_seurat_phase, dims=c(1,2), reduction="pca", combine=TRUE, group.by="Phase", split.by="groups")
+dev.off()
+```
+
+```{r
+CTRL[["groups"]] <- "Control"
+TREAT[["groups"]] <- "Treatment"
+combined <- merge(CTRL, TREAT)
+
+combined_seurat_phase <- CellCycleScoring(combined, s.features=s_genes, g2m.features=g2m_genes, set.ident=TRUE)
+combined_seurat_phase <- FindVariableFeatures(combined_seurat_phase, selection.method="vst", nfeatures=3000, verbose=FALSE)
+
+combined_seurat_phase$CC.Difference <- combined_seurat_phase$S.Score - combined_seurat_phase$G2M.Score
+
+combined_seurat_phase <- ScaleData(combined_seurat_phase, vars.to.regress=c("percent.mt", "CC.Difference"))
+combined_seurat_phase <- RunPCA(combined_seurat_phase)
+MT_and_CCDiff_plot <- DimPlot(combined_seurat_phase, dims=c(1,2), reduction="pca", combine=TRUE, group.by="Phase", split.by="groups")
+
+pdf(file="MT_and_CCDiff_plot.pdf", width=10, height=8)
+plot_grid(MT_and_CCDiff_plot)
+DimPlot(combined_seurat_phase, dims=c(1,2), reduction="pca", combine=TRUE, group.by="Phase", split.by="groups")
+dev.off()
+```
+
+# Different perplexity TSNE plots - CTRL and TREAT
+```{r
+CTRL <- SCTransform(CTRL, vars.to.regress="percent.mt", verbose=T)
+TREAT <- SCTransform(TREAT, vars.to.regress = "percent.mt", verbose=T)
+CTRL <- RunPCA(CTRL, verbose=T, npcs=100)
+TREAT <- RunPCA(TREAT, verbose=T, npcs=100)
+
+CTRL <- RunTSNE(CTRL, reduction="pca", dims=1:100, perplexity=30, method="FIt-SNE", max_iter=1000, verbose=TRUE, reduction.name="tsne30", reduction.key="tSNE30_")
+CTRL <- RunTSNE(CTRL, reduction="pca", dims=1:100, perplexity=60, method="FIt-SNE", max_iter=1000, verbose=TRUE, reduction.name="tsne60", reduction.key="tSNE60_")
+CTRL <- RunTSNE(CTRL, reduction="pca", dims=1:100, perplexity=120, method="FIt-SNE", max_iter=1000, verbose=TRUE, reduction.name="tsne120", reduction.key="tSNE120_")
+CTRL <- RunTSNE(CTRL, reduction="pca", dims=1:100, perplexity=250, method="FIt-SNE", max_iter=1000, verbose=TRUE, reduction.name="tsne250", reduction.key="tSNE250_")
+
+plot1 <- DimPlot(CTRL, reduction="tsne30", label=TRUE, pt.size=0.75)
+plot2 <- DimPlot(CTRL, reduction="tsne60", label=TRUE, pt.size=0.75)
+plot3 <- DimPlot(CTRL, reduction="tsne120", label=TRUE, pt.size=0.75)
+plot4 <- DimPlot(CTRL, reduction="tsne250", label=TRUE, pt.size=0.75)
+
+#pdf(file="CTRL_embedding_plots.pdf", width=10, height=8)
+plot_grid(plot1, plot2, plot3, plot4, labels=c('30', '60', '125', '250'), label_size=12, ncol=2)
+DimPlot(CTRL, reduction="tsne", label=TRUE, pt.size=0.75)
+#dev.off()
+```
+```{r
+TREAT <- RunTSNE(TREAT, reduction="pca", dims=1:100, perplexity=30, method="FIt-SNE", max_iter=1000, verbose=TRUE, reduction.name="tsne30", reduction.key="tSNE30_")
+TREAT <- RunTSNE(TREAT, reduction="pca", dims=1:100, perplexity=60, method="FIt-SNE", max_iter=1000, verbose=TRUE, reduction.name="tsne60", reduction.key="tSNE60_")
+TREAT <- RunTSNE(TREAT, reduction="pca", dims=1:100, perplexity=120, method="FIt-SNE", max_iter=1000, verbose=TRUE, reduction.name="tsne120", reduction.key="tSNE120_")
+TREAT <- RunTSNE(TREAT, reduction="pca", dims=1:100, perplexity=250, method="FIt-SNE", max_iter=1000, verbose=TRUE, reduction.name="tsne250", reduction.key="tSNE250_")
+
+plot1 <- DimPlot(TREAT, reduction="tsne30", label=TRUE, pt.size=0.75)
+plot2 <- DimPlot(TREAT, reduction="tsne60", label=TRUE, pt.size=0.75)
+plot3 <- DimPlot(TREAT, reduction="tsne120", label=TRUE, pt.size=0.75)
+plot4 <- DimPlot(TREAT, reduction="tsne250", label=TRUE, pt.size=0.75)
+
+#pdf(file="TREAT_embedding_plots.pdf", width=10, height=8)
+plot_grid(plot1, plot2, plot3, plot4, labels=c('30', '60', '125', '250'), label_size=12, ncol=2)
+DimPlot(TREAT, reduction="tsne", label=TRUE, pt.size=0.75)
+#dev.off()
+```
+
+```{r
+CTRL <- NormalizeData(CTRL)
+TREAT <- NormalizeData(TREAT)
+all_CTRL_genes <- rownames(CTRL)
+all_TREAT_genes <- rownames(TREAT)
+CTRL <- ScaleData(CTRL, features=all_CTRL_genes)
+TREAT <- ScaleData(TREAT, features=all_TREAT_genes)
+CTRL <- FindVariableFeatures(CTRL, selection.method="vst", nfeatures=3500)
+TREAT <- FindVariableFeatures(TREAT, selection.method="vst", nfeatures=3500)
+CTRL <- RunPCA(CTRL, npcs=50)
+TREAT <- RunPCA(TREAT, npcs=50)
+CTRL <- FindNeighbors(CTRL, dims=1:50)
+TREAT <- FindNeighbors(TREAT, dims=1:50)
+CTRL <- FindClusters(CTRL, resolution=1.2)
+TREAT <- FindClusters(TREAT, resolution=1.2)
+CTRL <- RunUMAP(CTRL, dims=1:50)
+TREAT <- RunUMAP(TREAT, dims=1:50)
+```
+
+```{r
+groups <- c(CTRL, TREAT)
+for (i in groups) {
+  i <- SCTransform(i, method="glmGamPoi", vars.to.regress=c("human.percent.mt", "mouse.percent.mt"))
+  i <- RunPCA(i, npcs=50, verbose=FALSE)
+  i <- RunUMAP(i, dims=1:50, verbose=FALSE)
+  i <- FindNeighbors(i, dims=1:50)
+  i <- FindClusters(i)
+  DimPlot(i, reduction='umap')
+}
+```
+
+# This code chunk for CTRL and TREAT processing
+```{r
+CTRL <- SCTransform(CTRL, method="glmGamPoi", variable.features.n=3500, vars.to.regress=c("human.percent.mt", "mouse.percent.mt"))
+CTRL <- RunPCA(CTRL, npcs=50, verbose=FALSE)
+CTRL <- RunUMAP(CTRL, dims=1:50, verbose=FALSE)
+CTRL <- FindNeighbors(CTRL, dims=1:50)
+CTRL <- FindClusters(CTRL)
+
+TREAT <- SCTransform(TREAT, method="glmGamPoi", variable.features.n=3500, vars.to.regress=c("human.percent.mt", "mouse.percent.mt"))
+TREAT <- RunPCA(TREAT, npcs=50, verbose=FALSE)
+TREAT <- RunUMAP(TREAT, dims=1:50, verbose=FALSE)
+TREAT <- FindNeighbors(TREAT, dims=1:50)
+TREAT <- FindClusters(TREAT)
+```
+
+```{r
+DimPlot(CTRL, reduction='umap')
+```
+
+```{r
+for (i in groups) {
+  markers.roc <- FindAllMarkers(i, min.pct=0.005, logfc.threshold=0.25, test.use="roc")
+  markers.roc.thresholded <- dplyr::filter(markers.roc, myAUC>=0)
+  markers.roc.thresholded.grouped <- markers.roc.thresholded %>% group_by(cluster)
+  markers.roc.thresholded.grouped.sorted <- markers.roc.thresholded.grouped %>% arrange(desc(myAUC), by_group=TRUE)
+  write(markers.roc.thresholded.grouped.sorted, file=paste0(i, '_markers_clustered_01022022.csv'))
+}
+```
+
+```{r
+DimPlot(seurat_integrated, reduction="pca")
+```
+
+# Find and save CTRL and TREAT markers - min.cells=0.05, logfc=0.25
+```{r
+CTRL.markers.roc <- FindAllMarkers(CTRL, min.pct=0.005, logfc.threshold=0.25, test.use="roc")
+CTRL.markers.roc.thresholded <- dplyr::filter(CTRL.markers.roc, myAUC >= 0)
+CTRL.markers.roc.thresholded.grouped <- CTRL.markers.roc.thresholded %>% group_by(cluster)
+CTRL.markers.roc.thresholded.grouped.sorted <- CTRL.markers.roc.thresholded.grouped %>% arrange(desc(myAUC), by_group=TRUE)
+head(CTRL.markers.roc.thresholded.grouped.sorted)
+
+write.csv(CTRL.markers.roc.thresholded.grouped.sorted, file="CTRL_markers_clustered_01022022.csv")
+
+TREAT.markers.roc <- FindAllMarkers(TREAT, min.pct=0.005, logfc.threshold=0.25, test.use="roc")
+TREAT.markers.roc.thresholded <- dplyr::filter(TREAT.markers.roc, myAUC >= 0)
+TREAT.markers.roc.thresholded.grouped <- TREAT.markers.roc.thresholded %>% group_by(cluster)
+TREAT.markers.roc.thresholded.grouped.sorted <- TREAT.markers.roc.thresholded.grouped %>% arrange(desc(myAUC), by_group=TRUE)
+head(TREAT.markers.roc.thresholded.grouped.sorted)
+
+write.csv(TREAT.markers.roc.thresholded.grouped.sorted, file="TREAT_markers_clustered_01022022.csv")
+```
+
+```{r
+more_mouse_genes <- c("Cd8a", "Cd4", "Cd3d")
+more_mouse_genes <- lapply(1:length(more_mouse_genes), function(k) paste0('mm10---', more_mouse_genes[[k]]))
+more_mouse_genes
+```
+
+
+# Basic pipeline and integration - Run this
+```{r}
+CTRL[["groups"]] <- "CTRL"
+TREAT[["groups"]] <- "TREAT"
+combined <- merge(CTRL, TREAT)
+
+split_seurat <- SplitObject(combined, split.by="groups")
+split_seurat[["human.percent.mt"]] < NULL
+
+split_seurat <- lapply(X=split_seurat, FUN=function(x) {
+  x <- NormalizeData(x)
+  x <- FindVariableFeatures(x, method="vst", nfeatures=3500)
+})
+
+anchors <- FindIntegrationAnchors(object.list=split_seurat, dims=1:50)
+seurat_integrated <- IntegrateData(anchorset=anchors, dims=1:50)
+
+DefaultAssay(seurat_integrated) <- "integrated"
+
+seurat_integrated <- ScaleData(seurat_integrated, verbose=FALSE)
+seurat_integrated <- RunPCA(seurat_integrated, npcs=50, verbose=FALSE)
+
+seurat_integrated <- RunUMAP(seurat_integrated, reduction="pca", dims=1:50)
+seurat_integrated <- FindNeighbors(seurat_integrated, reduction="pca", dims=1:50)
+seurat_integrated <- FindClusters(seurat_integrated, resolution=0.8)
+
+p1 <- DimPlot(seurat_integrated, reduction="umap", group.by="groups")
+p2 <- DimPlot(seurat_integrated, reduction="umap", label=TRUE)
+
+plot_grid(p1, p2)
+
+saveRDS(seurat_integrated, "/home/atp9753/seurat_integrated.rds")
+```
+### Should change the file path above and below to your account or p31492
+
+# Read seurat_integrated - If you have already run the pipeline above and you haven't changed seurat_integrated, run this instead of the pipeline
+```{r}
+seurat_integrated <- readRDS("/home/atp9753/seurat_integrated.rds")
+```
+
+# Write seurat_integrated to 10X file - If you want to run SingleR, run this
+```{r}
+write10xCounts(x=seurat_integrated@assays$RNA@counts, path='seurat_integrated_10X/')
+```
+
+```{r
+BiocManager::install("scran")
+library(scran)
+```
+
+
+# Annotate with SingleR - if you want to run SingleR, run this
+```{r}
+new.data <- Read10X("seurat_integrated_10X")
+ref.data <- MouseRNAseqData()
+
+predictions <- SingleR(test=new.data, assay.type.test="integrated",
+                       ref=ref.data, labels=ref.data$label.main,
+                       clusters=seurat_integrated@meta.data$seurat_clusters,
+                       
+                       de.method="wilcox")
+table(predictions$labels)
+```
+
+#If you want to run SingleR, run this
+```{r}
+predicted_labels <- predictions@listData$first.labels
+names(predicted_labels) <- levels(seurat_integrated)
+seurat_integrated <- RenameIdents(seurat_integrated, predicted_labels)
+```
+
+# To visualize the UMAP plot, run this
+```{r}
+#predicted_labels <- predictions@listData$first.labels
+#names(predicted_labels) <- levels(seurat_integrated)
+#seurat_integrated <- RenameIdents(seurat_integrated, predicted_labels)
+#pdf("seurat_integrated_umap_singler.pdf")
+DimPlot(seurat_integrated, reduction="umap", label=TRUE, pt.size=0.5, group.by="groups")
+#dev.off()
+```
+
+```{r}
+plot_density(seurat_integrated, features=c("Foxp3", "Odc1"), joint=TRUE) + facet_wrap(.~seurat_integrated$groups)
+```
+
+
+# Cell cluster setting parameters
+```{r}
+ElbowPlot(seurat_integrated, ndims=100)
+```
+
+# seurat_integrated plots
+```{r
+seurat_integrated <- RunPCA(seurat_integrated, dims=1:50)
+seurat_integrated <- RunUMAP(seurat_integrated, dims=1:50)
+seurat_integrated <- FindNeighbors(seurat_integrated, dims=1:50)
+seurat_integrated <- FindClusters(seurat_integrated)
+#Idents(seurat_integrated) <- "integrated_snn_res.1.0"
+DimPlot(seurat_integrated, reduction="umap", label=TRUE, label.size=3)
+```
+# Find markers of CTRL vs TREAT
+```{r
+seurat_integrated@meta.data[["seurat_clusters"]] <- as.numeric(seurat_integrated@meta.data[["seurat_clusters"]])
+cell.8.markers <- FindMarkers(seurat_integrated, ident.1=8, group.by="groups", assay="RNA")
+write.csv(cell.8.markers %>% group_by(cluster), 'cluster_8_markers_seurat_integrated_01072022.csv')
+```
+
+
+
+
+
+# Analyzing biological and technical features/variation in clusters
+```{r}
+n_cells <- FetchData(seurat_integrated,
+                     vars=c("ident", "orig.ident")) %>%
+  dplyr::count(ident, orig.ident) %>%
+  tidyr::spread(ident, n)
+
+View(n_cells)
+
+DimPlot(seurat_integrated,
+        label=TRUE,
+        split.by="groups") + NoLegend()
+
+DimPlot(seurat_integrated,
+        label=TRUE,
+        group.by="groups",
+        split.by="Phase") + NoLegend()
+
+# "nUMI", "nGene", "S.Score", "G2M.Score", 
+nUMI_nGene_nFeature <- c("MT_genes")#, "nCount_RNA", "nFeature_RNA")
+nCount_sscore_g2mscore <- c("MT_genes", "S.Score", "G2M.Score")
+
+t_cells <- WhichCells(seurat_integrated, expression = Itgam > 0 & Cd4 > 0)
+
+cells <- subset(seurat_integrated, idents=c(17,9))
+
+#pdf("nCountRNA_sscore_g2mscore.pdf")
+FeaturePlot(cells,
+            reduction="umap",
+            features=nUMI_nGene_nFeature,
+            #cells=cells,
+            pt.size=0.4,
+            sort.cell=TRUE,
+            min.cutoff='q10',
+            label=FALSE,
+            split.by="groups")
+#dev.off()
+
+columns <- c(paste0("PC_", 1:3),
+             "ident",
+             "UMAP_1", "UMAP_2")
+pc_data <- FetchData(seurat_integrated,
+                     vars=columns)
+#FeaturePlot(seurat_integrated, reduction = "umap", features=pc_data, split.by="groups")
+```
+```{r
+umap_label <- FetchData(seurat_integrated,
+                       vars=c("ident", "UMAP_1", "UMAP_2")) %>%
+  group_by(ident) %>%
+  summarise(x=mean(UMAP_1), y=mean(UMAP_2))
+
+purrr::map(paste0("PC_", 1:22), function(pc) {
+  ggplot(pc_data,
+         aes(UMAP_1, UMAP_2)) +
+    geom_point(aes_string(color=pc),
+               alpha=0.7) +
+    scale_color_gradient(guide=FALSE,
+                         low="grey90",
+                         high="blue") +
+    geom_text(data=umap_label,
+              aes(label=ident, x, y)) +
+    ggtitle(pc)
+}) %>%
+  plot_grid(plotlist = .)
+```
+
+# To visualize the expression of different genes in the different groups across the cells, run this
+```{r}
+#pdf("foxp3_il2ra_odc1.pdf")
+FeaturePlot(seurat_integrated, features=c("Vegfa", "Itgam", "Cd274"), min.cutoff="q10", split.by="groups")
+#dev.off()
+```
+
+
+```{r}
+plot <- DimPlot(seurat_integrated, reduction="umap", label=TRUE) + NoLegend()
+myeloid_t_cells <- CellSelector(plot)
+#write.csv(myeloid_t_cells, "myeloid_t_cells.csv")
+```
+
+# Set this up to find all clusters conserved markers
+```{r}
+#myeloid_t_cells <- read.csv("myeloid_t_cells.csv")
+#head(myeloid_t_cells)
+Idents(seurat_integrated, cells = myeloid_t_cells) <- "myeloid_t_cells"
+DefaultAssay(seurat_integrated) <- "RNA"
+all_clusters_conserved_markers <- FindConservedMarkers(seurat_integrated, ident.1=1, grouping.var="groups", verbose=FALSE)
+write.csv(mtc_conserved_markers, "all_clusters_conserved_markers.csv")
+seurat_integrated@meta.data$seurat_clusters <- seurat_integrated@active.ident
+write.csv(seurat_integrated@meta.data, "seurat_integrated_metadata.csv")
+```
+```{r}
+DimPlot(seurat_integrated, reduction="umap", label=T)
+```
+
+# myeloid_t_cell markers - vs. clusters 17 and 9
+```{r}
+myeloid_t_cell_17_markers <- FindMarkers(seurat_integrated, ident.1="myeloid_t_cells", ident.2="17", min.pct=0.05, logfc.threshold=0.20, test.use="roc")
+write.csv(myeloid_t_cell_17_markers, "myeloid_t_cell_17_markers.csv")
+```
+
+```{r}
+myeloid_t_cell_9_markers <- FindMarkers(seurat_integrated, ident.1="myeloid_t_cells", ident.2="9", min.pct=0.05, logfc.threshold=0.20, test.use="roc")
+write.csv(myeloid_t_cell_9_markers, "myeloid_t_cell_9_markers.csv")
+```
+# Writing seurat_integrated metadata as CSV
+```{r}
+seurat_integrated@meta.data$seurat_clusters <- seurat_integrated@active.ident
+write.csv(seurat_integrated@meta.data, "seurat_integrated_metadata.csv")
+```
+
+
+
+
+```{r}
+head(cells.8)
+Idents(seurat_integrated, cells="cells.8") <- "cells.8"
+
+```
+
+
+```{r}
+# pdf("0_9_percent_mt_seurat_integrated_umap.pdf")
+DimPlot(seurat_integrated, reduction="umap", label=TRUE, split.by="groups") + NoLegend()
+# dev.off()
+```
+
+```{r}
+# pdf("0_9_percent_mt_seurat_integrated_umap.pdf")
+plot <- DimPlot(seurat_integrated, reduction="umap", label=TRUE) + NoLegend()
+HoverLocator(plot=plot, information=FetchData(seurat_integrated, vars = c("ident", "PC_1", "nCount_RNA")))
+# dev.off()
+```
+
+```{r}
+new.cluster.ids <- c("0", "1", "2", ".", "4", "Tumor", "6", ".", "8", ".", ".", "11", "12", "NK Cells", "14", "15", "16", "CD8 T cells", "cDC1", "Astrocytes/Oligodendrocytes", "20", "21", "cDC2", "23", "24", "25", "26", "Endothelial cells", "28")
+```
+
+```{r}
+#names(new.cluster.ids) <- levels(seurat_integrated)
+#seurat_integrated <- RenameIdents(seurat_integrated, new.cluster.ids)
+DimPlot(seurat_integrated, reduction="umap", label=TRUE)
+```
+
+# '0', '3', '11' sub-populations of macrophages/microglia?
+# 'Gm15056' upregulated in macrophages under treatment, 'F10', 'Nos2' downregulated
+# 'Ccl3', 'Csf1' cells appear in '9' under treatment
+# No memory 'Cd69', 'Itgae' (Cd103) population
+# Macrophage4 markers ('Itgam', 'Pf4', 'C1qa', 'C1qb', 'C1qc') seem to shrink under treatment
+# Vestigial limb population to the left of '4', '0' disappears under treatment (expresses 'Ly6d', 'Siglech')
+# Upper part of '2' possibly astrocytes? - upregulates cell senesncence 'Igfbp4', 'Igfbp7' under treatment 
+# '24', left edge of '3' possibly (tumor-associated) endothelial cells? - express 'Col4a1' and 'Igfbp7'
+# '21' oligodendrocytes/OPCs - 'Olig2', 'Il33', other markers
+# '19' likely cDC2 population - 'Ccr7', 'Ccl5', 'Samsn1', 'Pcgf5', 'Gyg', 'Net1', 'Rapgap1l'
+# '18' cDC1-like population - expresses canonical markers 'Itgae', 'Clec9a', but not as much 'Batf3' as e.g. cDC2 population, especially under treatment - surprising?
+# 'Il12b', 'Ccl5' appear to be less expressed under treatment, so presumably less migration of cDC1s into TME - less recruitment/activation of Cd8 T cells as a result? - there appears to be fewer 'Cd8a' cells under treatment
+# NK cell observations in Google Doc
+# Under treatment, '7' and green top part of '14' upregulate 'Il12rb2'
+# '8' expresses 'Il1b', 'Ly6c2', 'Sell'
+
+#("Batf3+ Irf8+ DCs")
+
+
+
+# Cluster '10' - slight expression of 'Stmn1', 'Mki67' T cell proliferation markers under treatment
+# e.g. 'Il1r2' and Il1b' coexpression in treatment and control - 'Il1r2' less in '9', more in '8' in treatment
+# Clusters '2', '4,' '6', '14' all seem to have Macrophage4 markers ('Itgam', 'Pf4', 'C1qa', 'C1qb', 'C1qc')
+# '13' DC2 - ('Ccr7', 'Ccl5', 'Samsn1', 'Pcgf5', 'Gyg', 'Net1', 'Rabgap1l')
+# Right side of '9', 'left bit of '0' potentially Macrophage3 - ('Ly6c2', 'Cxcl9', 'Il1b', H2-Ab1', 'H2-'DMb2', 'Mmp14', 'Cd38')
+# Bottom side of '3' potentially Neural cells/NPCs etc. ('Nedd4', 'Neurl3', 'Nenf')
+
+
+```{r}
+print(seurat_integrated[["pca"]], dims=1:2, nfeatures=5)
+```
+
+```{r}
+#pdf("ccl5_xcl1_xcr1.pdf")
+FeaturePlot(seurat_integrated, reduction="umap", features=c('Ccl5', 'Xcl1', 'Xcr1'), min.cutoff='q10', split.by="groups")
+#dev.off()
+```
+
+
+
+
+
+```{r}
+seurat_obj = seurat_integrated
+signature_score_1 =
+  seurat_obj[c("Cd3d", "Trdc", "Trgc1", "Trgc2"),] %>%
+  Seurat::GetAssayData(assay="SCT", slot="data") %>%
+  colSums() %>%
+  scales::rescale(to=c(0,1))
+signature_score_2 =
+  seurat_obj[c("Cd8a", "Cd8b"),] %>%
+  Seurat::GetAssayData(assay="SCT", slot="data") %>%
+  colSums() %>%
+  scales::rescale(to=c(0,1))
+seurat_obj$signature_score = 
+  signature_score_1 - signature_score_2
+```
+
+```{r}
+splits = colnames(seurat_obj) %>%
+  split(seurat_obj$groups)
+min_size = splits %>%
+  lapply(function(x) sample(x, min_size)) %>%
+  unlist()
+seurat_obj = seurat_obj[, cell_subset]
+```
+
+```{r}
+Seurat::FeaturePlot(
+  seurat_obj,
+  features = c("signature_score", "Cd3d", "Trdc", "Trgc1",   "Trgc2", "Cd8a", "Cd8b"),
+  split.by="type",
+  min.cutoff=0.1
+)
+```
+
+
+
+```{r}
+#pdf("gzma_klrb1c_ncr1_CTRL.pdf")
+FeaturePlot(CTRL, reduction="umap", features=c("mm10---Tap2", "mm10---H2-Ab1", "mm10---Cd74"), min.cutoff='q10')
+#dev.off()
+```
+
+```{r}
+#pdf("gzma_klrb1c_nrc1_TREAT.pdf")
+FeaturePlot(TREAT, reduction="umap", features=c("mm10---Tap2", "mm10---H2-Ab1", "mm10---Cd74"), min.cutoff='q10')
+#dev.off()
+```
+
+
+
+
+
+
+
+
+```{r}
+GeneCounter <- function(
+  object,
+  pattern = NULL,
+  features = NULL,
+  col.name = NULL,
+  assay = NULL
+) {
+  assay <- assay %||% DefaultAssay(object = object)
+  if (!is.null(x = features) && !is.null(x = pattern)) {
+    warning("Both pattern and features provided. Pattern is being ignored.")
+  }
+  features <- features %||% grep(pattern = pattern, x = rownames(x = object[[assay]]), value = TRUE)
+  percent.featureset <- colSums(x = GetAssayData(object = object, assay = assay, slot = "counts")[features, , drop = FALSE])
+  if (!is.null(x = col.name)) {
+    object <- AddMetaData(object = object, metadata = percent.featureset, col.name = col.name)
+    return(object)
+  }
+  return(percent.featureset)
+}
+```
+
+```{r}
+get_conserved <- function(cluster) {
+  FindConservedMarkers(seurat_integrated,
+                       ident.1=cluster,
+                       grouping.var="groups") %>%
+    rownames_to_column(var="genes") %>%
+    left_join(y=unique(annotations[, c("gene_name", "description")]),
+              by=c(seurat_integrated@meta.data$assays@RNA$counts@Dimnames[[1]] = "gene_name")) %>%
+    cbind(cluster_id = cluster, .)
+} 
+```
+
+```{r}
+conserved_markers <- map_dfr(seurat_integrated@meta.data$seurat_clusters, get_conserved)
+write.csv(conserved_markers, "all_clusters_conserved_markers.csv")
+```
+
