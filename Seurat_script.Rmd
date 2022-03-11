@@ -5,6 +5,7 @@ output: html_document
 
 # Run this first
 ```{r}
+### Ignore the details of this function, it basically counts the number of gene transcripts that were recorded for a particular gene
 GeneCounter <- function(
   object,
   pattern = NULL,
@@ -33,6 +34,7 @@ BiocManager::install("Seurat")
 
 # Load data and basic data cleaning - Run this
 ```{r}
+### If you want to visualize the locations of lowly expressed genes (like transcription factors, etc.), remove the "#" in front of the line "library(Nebulosa)" and put a "#" in front of the line "library(Seurat)"
 #library(Nebulosa)
 library(Seurat)
 library(ggplot2)
@@ -54,21 +56,25 @@ library(tibble)
 # library(pagoda2)
 # library(loomR)
 
+### If your RNA-seq data was processed by Cellranger, you should have a file on your computer or on your supercomputer (or wherever you data is) called "filtered_feature_bc_matrix". If this is your first time using the "terminal" application on Mac/or a linux machine, refer to this video here to familiarize yourself with how to access/copy/delete/move/etc. files there: https://www.youtube.com/watch?v=cBokz0LTizk . If you are using a Windows machine, refer here: https://www.youtube.com/watch?v=MBBWVgE0ewk
+### These next four lines basically import the data from your machine into the analysis software. In the last two lines, with the "min.cells=" argument, we filter out genes that are expressed in less than 3 cells. With the "min.features=" argument, we filter out cells in which less than 200 genes are recorded. 
 CTRL.data <- Read10X("/projects/p31559/Peng_scRNA_data/cellranger/Control_GEX/outs/filtered_feature_bc_matrix", gene.column=2, unique.features=TRUE)
 TREAT.data <- Read10X("/projects/p31559/Peng_scRNA_data/cellranger/Treatment_GEX/outs/filtered_feature_bc_matrix", gene.column=2, unique.features=TRUE)
-
 CTRL <- CreateSeuratObject(counts=CTRL.data, project="CTRL", min.cells=3, min.features=200)
 TREAT <- CreateSeuratObject(counts=TREAT.data, project="TREAT", min.cells=3, min.features=200)
 
+### The function "PercentageFeatureSet" calculates the percentage of reads that have some pattern. In this case, we calculate the percentage of CTRL reads that start with the pattern "GRCh38-mt-". The way we tell "PercentageFeatureSet" that only want the reads that start with that pattern is indicated by "^", which we put in front of the pattern. If we want only the reads that end with a pattern, we use "$" instead and put it behind the pattern. Since each row in the dataframe is an individual cell, we then create a new column in the CTRL dataframe with the percentage of reads matching that pattern for each cell (e.g., the percentage of reads beginning with the pattern "MT-" for each cell).
 #CTRL[["human.percent.mt"]] <- PercentageFeatureSet(CTRL, pattern="^GRCh38-mt-")
 CTRL[["mouse.percent.mt"]] <- PercentageFeatureSet(CTRL, pattern="mt-")
-VlnPlot(CTRL, features=c("nFeature_RNA", "nCount_RNA", "human.percent.mt"), ncol=3, log=TRUE)
 #TREAT[["human.percent.mt"]] <- PercentageFeatureSet(TREAT, pattern="^GRCh38-mt-")
 TREAT[["mouse.percent.mt"]] <- PercentageFeatureSet(TREAT, pattern="mt-")
+
+### We can then create violin plots for the values in the columns we created, or any others that are already existing.
+VlnPlot(CTRL, features=c("nFeature_RNA", "nCount_RNA", "human.percent.mt"), ncol=3, log=TRUE)
 VlnPlot(TREAT, features=c("nFeature_RNA", "nCount_RNA", "mouse.percent.mt"), ncol=3, log=TRUE)
 
 
-
+### Here, we create new columns where the values are the integer number of gene transcripts matching a pattern in each cell.
 CTRL[["MT_genes"]] <- GeneCounter(CTRL, pattern="mt-")
 TREAT[["MT_genes"]] <- GeneCounter(TREAT, pattern="mt-")
 
@@ -84,6 +90,7 @@ TREAT[["Odc1"]] <- GeneCounter(TREAT, pattern="Odc1")
 CTRL[["Cd3d"]] <- GeneCounter(CTRL, pattern="Cd3d")
 TREAT[["Cd3d"]] <- GeneCounter(TREAT, pattern="Cd3d")
 
+### We know we will want to filter our cells according to how many or how few unique genes are in each, and also according to how many or how few reads are in each cell, so we can create variables that have the values we want to use as our filtering thresholds, and we can plug these variables into the following functions where we choose to filter. That way, if we use variables instead of just plugging in the integer values whenever we choose to filter, if we choose to change the filtering value, we only need to make the change once (right below, where we define the variables), and that change will propagate to each use of the variable. In addition, if we choose to set the filters manually, with the integer value each time, we might make mistakes that could affect our analysis significantly and that are very difficult to pinpoint.
 min_genes <- 200
 max_genes <- 8000
 min_reads <- 250
