@@ -15,13 +15,19 @@ output: html_document
 
 
 ### scRNA-seq analysis
+# Basic Seurat tutorial - look here before using this tutorial (https://satijalab.org/seurat/articles/pbmc3k_tutorial.html)
+# Helpful for understanding "Integration" (analyzing the control and treatment groups in unison) - (https://satijalab.org/seurat/articles/integration_introduction.html)
 # I found this to be a very useful course: (https://github.com/hbctraining/scRNA-seq) - the lessons can be found in the "lessons" folder
 # To learn more about data visualization in Seurat, look here (https://satijalab.org/seurat/articles/visualization_vignette.html) and here (https://satijalab.org/seurat/archive/v3.0/visualization_vignette.html)
 # Biostars.com is useful for everything bioinformatic (RNA-seq analysis in particular)
+# Helpful for understanding the difference between three key differential expression functions, "FindConservedMarkers," "FindMarkers," "FindAllMarkers" - (https://www.biostars.org/p/409790/)
+# Overview of basic Seurat workflow, basic Seurat functions, etc. (https://satijalab.org/seurat/articles/essential_commands.html)
+# Helpful for understanding "Assays," which will be often used in this tutorial and in practice (https://github.com/satijalab/seurat/wiki/Assay)
+
 
 ### Troubleshooting
 # I have/will added an R tutorial to this GitHub repository - check there to see if you are using basic functions correctly
-# This is another R tutorial - it is more comprehensive, but will take you longer to go through, and also perhaps to refer back to in the future, but still a very useful resource (
+# This is another R tutorial - it is more comprehensive, but will take you longer to go through, and also perhaps to refer back to in the future, but still a very useful resource (here)
 # First, with the exception of your dataset having different names, etc. than the ones in this tutorial or on the reference pages, if you are having trouble running a particular line of code, make sure the syntax of a particular line aligns EXACTLY with the syntax used either in this tutorial here, or on the reference page (you can find how to use very Seurat function here: https://satijalab.org/seurat/reference/)
 # If you are having an issue running a particular line of code, GOOGLE IT! Someone has likely had your same issue before. If you poke around enough, you will often find an answer on Biostars, some random message board, or ...
 # Seurat's GitHub issue page has a number of questions from people just like you, who are doing things very similar to you. Many of them have been answered - definintely try to find an answer there. If you can't, feel free to ask your question there as well.
