@@ -2,29 +2,12 @@
 title: 'Lesniak Lab (Aaron Presser): Peng''s siRNA therapy - Seurat script'
 output: html_document
 ---
-
-# Run this first
+### Future references
 ```{r}
-### Ignore the details of this function, it basically counts the number of gene transcripts that were recorded for a particular gene
-GeneCounter <- function(
-  object,
-  pattern = NULL,
-  features = NULL,
-  col.name = NULL,
-  assay = NULL
-) {
-  assay <- assay %||% DefaultAssay(object = object)
-  if (!is.null(x = features) && !is.null(x = pattern)) {
-    warning("Both pattern and features provided. Pattern is being ignored.")
-  }
-  features <- features %||% grep(pattern = pattern, x = rownames(x = object[[assay]]), value = TRUE)
-  percent.featureset <- colSums(x = GetAssayData(object = object, assay = assay, slot = "counts")[features, , drop = FALSE])
-  if (!is.null(x = col.name)) {
-    object <- AddMetaData(object = object, metadata = percent.featureset, col.name = col.name)
-    return(object)
-  }
-  return(percent.featureset)
-}
+# I found this to be a very useful course: (https://github.com/hbctraining/scRNA-seq) - the lessons can be found in the "lessons" folder
+# To learn more about data visualization in Seurat, look here (https://satijalab.org/seurat/articles/visualization_vignette.html) and here (https://satijalab.org/seurat/archive/v3.0/visualization_vignette.html)
+# 
+
 ```
 
 ```{r}
@@ -119,6 +102,7 @@ TREAT <- subset(x=TREAT, subset=nFeature_RNA > min_genes & nFeature_RNA < max_ge
 
 # Get Cell Cycle markers - look at CCMs in CTRL and TREAT
 ```{r}
+# These two lines get a list of Mouse (Mus musculus) cell cycle genes separated by cell cycle phase
 cc_file <- getURL("https://raw.githubusercontent.com/hbc/tinyatlas/master/cell_cycle/Mus_musculus.csv")
 cell_cycle_genes <- read.csv(text=cc_file)
 
@@ -228,117 +212,6 @@ TREAT <- merge(mouse_TREAT, human_TREAT)
 ```
 
 
-# MT and MT/CCDiff cell cycle PCA plots
-```{r
-CTRL[["groups"]] <- "Control"
-TREAT[["groups"]] <- "Treatment"
-combined <- merge(CTRL, TREAT)
-
-combined_seurat_phase <- CellCycleScoring(combined, s.features=s_genes, g2m.features=g2m_genes, set.ident=TRUE)
-combined_seurat_phase <- FindVariableFeatures(combined_seurat_phase, selection.method="vst", nfeatures=3000, verbose=FALSE)
-
-combined_seurat_phase$CC.Difference <- combined_seurat_phase$S.Score - combined_seurat_phase$G2M.Score
-
-combined_seurat_phase <- ScaleData(combined_seurat_phase, vars.to.regress=c("percent.mt"))
-combined_seurat_phase <- RunPCA(combined_seurat_phase)
-MT_plot <- DimPlot(combined_seurat_phase, dims=c(1,2), reduction="pca", combine=TRUE, group.by="Phase", split.by="groups")
-
-pdf(file="MT_plot.pdf", width=10, height=8)
-plot_grid(MT_plot)
-DimPlot(combined_seurat_phase, dims=c(1,2), reduction="pca", combine=TRUE, group.by="Phase", split.by="groups")
-dev.off()
-```
-
-```{r
-CTRL[["groups"]] <- "Control"
-TREAT[["groups"]] <- "Treatment"
-combined <- merge(CTRL, TREAT)
-
-combined_seurat_phase <- CellCycleScoring(combined, s.features=s_genes, g2m.features=g2m_genes, set.ident=TRUE)
-combined_seurat_phase <- FindVariableFeatures(combined_seurat_phase, selection.method="vst", nfeatures=3000, verbose=FALSE)
-
-combined_seurat_phase$CC.Difference <- combined_seurat_phase$S.Score - combined_seurat_phase$G2M.Score
-
-combined_seurat_phase <- ScaleData(combined_seurat_phase, vars.to.regress=c("percent.mt", "CC.Difference"))
-combined_seurat_phase <- RunPCA(combined_seurat_phase)
-MT_and_CCDiff_plot <- DimPlot(combined_seurat_phase, dims=c(1,2), reduction="pca", combine=TRUE, group.by="Phase", split.by="groups")
-
-pdf(file="MT_and_CCDiff_plot.pdf", width=10, height=8)
-plot_grid(MT_and_CCDiff_plot)
-DimPlot(combined_seurat_phase, dims=c(1,2), reduction="pca", combine=TRUE, group.by="Phase", split.by="groups")
-dev.off()
-```
-
-# Different perplexity TSNE plots - CTRL and TREAT
-```{r
-CTRL <- SCTransform(CTRL, vars.to.regress="percent.mt", verbose=T)
-TREAT <- SCTransform(TREAT, vars.to.regress = "percent.mt", verbose=T)
-CTRL <- RunPCA(CTRL, verbose=T, npcs=100)
-TREAT <- RunPCA(TREAT, verbose=T, npcs=100)
-
-CTRL <- RunTSNE(CTRL, reduction="pca", dims=1:100, perplexity=30, method="FIt-SNE", max_iter=1000, verbose=TRUE, reduction.name="tsne30", reduction.key="tSNE30_")
-CTRL <- RunTSNE(CTRL, reduction="pca", dims=1:100, perplexity=60, method="FIt-SNE", max_iter=1000, verbose=TRUE, reduction.name="tsne60", reduction.key="tSNE60_")
-CTRL <- RunTSNE(CTRL, reduction="pca", dims=1:100, perplexity=120, method="FIt-SNE", max_iter=1000, verbose=TRUE, reduction.name="tsne120", reduction.key="tSNE120_")
-CTRL <- RunTSNE(CTRL, reduction="pca", dims=1:100, perplexity=250, method="FIt-SNE", max_iter=1000, verbose=TRUE, reduction.name="tsne250", reduction.key="tSNE250_")
-
-plot1 <- DimPlot(CTRL, reduction="tsne30", label=TRUE, pt.size=0.75)
-plot2 <- DimPlot(CTRL, reduction="tsne60", label=TRUE, pt.size=0.75)
-plot3 <- DimPlot(CTRL, reduction="tsne120", label=TRUE, pt.size=0.75)
-plot4 <- DimPlot(CTRL, reduction="tsne250", label=TRUE, pt.size=0.75)
-
-#pdf(file="CTRL_embedding_plots.pdf", width=10, height=8)
-plot_grid(plot1, plot2, plot3, plot4, labels=c('30', '60', '125', '250'), label_size=12, ncol=2)
-DimPlot(CTRL, reduction="tsne", label=TRUE, pt.size=0.75)
-#dev.off()
-```
-```{r
-TREAT <- RunTSNE(TREAT, reduction="pca", dims=1:100, perplexity=30, method="FIt-SNE", max_iter=1000, verbose=TRUE, reduction.name="tsne30", reduction.key="tSNE30_")
-TREAT <- RunTSNE(TREAT, reduction="pca", dims=1:100, perplexity=60, method="FIt-SNE", max_iter=1000, verbose=TRUE, reduction.name="tsne60", reduction.key="tSNE60_")
-TREAT <- RunTSNE(TREAT, reduction="pca", dims=1:100, perplexity=120, method="FIt-SNE", max_iter=1000, verbose=TRUE, reduction.name="tsne120", reduction.key="tSNE120_")
-TREAT <- RunTSNE(TREAT, reduction="pca", dims=1:100, perplexity=250, method="FIt-SNE", max_iter=1000, verbose=TRUE, reduction.name="tsne250", reduction.key="tSNE250_")
-
-plot1 <- DimPlot(TREAT, reduction="tsne30", label=TRUE, pt.size=0.75)
-plot2 <- DimPlot(TREAT, reduction="tsne60", label=TRUE, pt.size=0.75)
-plot3 <- DimPlot(TREAT, reduction="tsne120", label=TRUE, pt.size=0.75)
-plot4 <- DimPlot(TREAT, reduction="tsne250", label=TRUE, pt.size=0.75)
-
-#pdf(file="TREAT_embedding_plots.pdf", width=10, height=8)
-plot_grid(plot1, plot2, plot3, plot4, labels=c('30', '60', '125', '250'), label_size=12, ncol=2)
-DimPlot(TREAT, reduction="tsne", label=TRUE, pt.size=0.75)
-#dev.off()
-```
-
-```{r
-CTRL <- NormalizeData(CTRL)
-TREAT <- NormalizeData(TREAT)
-all_CTRL_genes <- rownames(CTRL)
-all_TREAT_genes <- rownames(TREAT)
-CTRL <- ScaleData(CTRL, features=all_CTRL_genes)
-TREAT <- ScaleData(TREAT, features=all_TREAT_genes)
-CTRL <- FindVariableFeatures(CTRL, selection.method="vst", nfeatures=3500)
-TREAT <- FindVariableFeatures(TREAT, selection.method="vst", nfeatures=3500)
-CTRL <- RunPCA(CTRL, npcs=50)
-TREAT <- RunPCA(TREAT, npcs=50)
-CTRL <- FindNeighbors(CTRL, dims=1:50)
-TREAT <- FindNeighbors(TREAT, dims=1:50)
-CTRL <- FindClusters(CTRL, resolution=1.2)
-TREAT <- FindClusters(TREAT, resolution=1.2)
-CTRL <- RunUMAP(CTRL, dims=1:50)
-TREAT <- RunUMAP(TREAT, dims=1:50)
-```
-
-```{r
-groups <- c(CTRL, TREAT)
-for (i in groups) {
-  i <- SCTransform(i, method="glmGamPoi", vars.to.regress=c("human.percent.mt", "mouse.percent.mt"))
-  i <- RunPCA(i, npcs=50, verbose=FALSE)
-  i <- RunUMAP(i, dims=1:50, verbose=FALSE)
-  i <- FindNeighbors(i, dims=1:50)
-  i <- FindClusters(i)
-  DimPlot(i, reduction='umap')
-}
-```
-
 # This code chunk for CTRL and TREAT processing
 ```{r
 CTRL <- SCTransform(CTRL, method="glmGamPoi", variable.features.n=3500, vars.to.regress=c("human.percent.mt", "mouse.percent.mt"))
@@ -355,10 +228,6 @@ TREAT <- FindClusters(TREAT)
 ```
 
 ```{r
-DimPlot(CTRL, reduction='umap')
-```
-
-```{r
 for (i in groups) {
   markers.roc <- FindAllMarkers(i, min.pct=0.005, logfc.threshold=0.25, test.use="roc")
   markers.roc.thresholded <- dplyr::filter(markers.roc, myAUC>=0)
@@ -366,10 +235,6 @@ for (i in groups) {
   markers.roc.thresholded.grouped.sorted <- markers.roc.thresholded.grouped %>% arrange(desc(myAUC), by_group=TRUE)
   write(markers.roc.thresholded.grouped.sorted, file=paste0(i, '_markers_clustered_01022022.csv'))
 }
-```
-
-```{r
-DimPlot(seurat_integrated, reduction="pca")
 ```
 
 # Find and save CTRL and TREAT markers - min.cells=0.05, logfc=0.25
@@ -398,8 +263,9 @@ more_mouse_genes
 ```
 
 
-# Basic pipeline and integration - Run this
+# Basic pipeline and integration - Run this - This is a relatively standard pipeline for experiments with CTRL and TREAT groups
 ```{r}
+# The three lines below - for the CTRL dataframe, it creates a column named "groups" and fills it with "CTRLL" all the way down. The TREAT line also creates a column named "groups" for the TREAT dataframe, and fills it with "TREAT" all the way down. The third line merges the two dataframes together
 CTRL[["groups"]] <- "CTRL"
 TREAT[["groups"]] <- "TREAT"
 combined <- merge(CTRL, TREAT)
@@ -407,11 +273,13 @@ combined <- merge(CTRL, TREAT)
 split_seurat <- SplitObject(combined, split.by="groups")
 split_seurat[["human.percent.mt"]] < NULL
 
+# In the few lines below, we split our data by "groups" (i.e., whether any particular piece of data is from the CTRL group or the TREAT group) and then we normalize it, and find the 3500 most variable genes
 split_seurat <- lapply(X=split_seurat, FUN=function(x) {
   x <- NormalizeData(x)
   x <- FindVariableFeatures(x, method="vst", nfeatures=3500)
 })
 
+# In these two lines, we essentially make sure that we are aligning our CTRL data and our TREAT data so when we generate UMAP or PCA plots, the data are relatively well aligned. Also, by coordinating the cleaning process for the CTRL and TREAT groups (which is what we are doing here), our analysis will generally be more accurate and precise
 anchors <- FindIntegrationAnchors(object.list=split_seurat, dims=1:50)
 seurat_integrated <- IntegrateData(anchorset=anchors, dims=1:50)
 
@@ -424,11 +292,14 @@ seurat_integrated <- RunUMAP(seurat_integrated, reduction="pca", dims=1:50)
 seurat_integrated <- FindNeighbors(seurat_integrated, reduction="pca", dims=1:50)
 seurat_integrated <- FindClusters(seurat_integrated, resolution=0.8)
 
+# These lines create (but do not actually plot) plots for the seurat_integrated object - the first one is split into "CTRL" and "TREAT" groups, and the second is generated with the clusters labelled
 p1 <- DimPlot(seurat_integrated, reduction="umap", group.by="groups")
 p2 <- DimPlot(seurat_integrated, reduction="umap", label=TRUE)
 
+# This line actually plots those two different plots
 plot_grid(p1, p2)
 
+# Rather than having to run all the above lines of code again to get this processed seurat_integrated object next time we open our computer, we can save the seurat_integrated object to our computers and just load it again (fully-processed - see the "readRDS" line below) next time we want to use or reference it
 saveRDS(seurat_integrated, "/home/atp9753/seurat_integrated.rds")
 ```
 ### Should change the file path above and below to your account or p31492
@@ -440,6 +311,7 @@ seurat_integrated <- readRDS("/home/atp9753/seurat_integrated.rds")
 
 # Write seurat_integrated to 10X file - If you want to run SingleR, run this
 ```{r}
+# This line uses the seurat_integrated object to create a new file on your computer than can be input into a piece of software that will automatically label the cell types of different cell clustsers - the software is not entirely accurate so you likely shouldn't rely entirely on it
 write10xCounts(x=seurat_integrated@assays$RNA@counts, path='seurat_integrated_10X/')
 ```
 
@@ -451,19 +323,24 @@ library(scran)
 
 # Annotate with SingleR - if you want to run SingleR, run this
 ```{r}
+# Inputting that file created above with the write10xCounts() function into the automatic cell type-labelling software, SingleR
 new.data <- Read10X("seurat_integrated_10X")
+# Create a reference dataframe so the software has some idea of what different cell types should look like - then if you input unlabelled data into it, it can try to predict what cell types those unlabelled data best look like
 ref.data <- MouseRNAseqData()
 
+# This makes the actual predictions
 predictions <- SingleR(test=new.data, assay.type.test="integrated",
                        ref=ref.data, labels=ref.data$label.main,
                        clusters=seurat_integrated@meta.data$seurat_clusters,
                        
                        de.method="wilcox")
+                       
+# This presents the predictions in a nice format
 table(predictions$labels)
 ```
 
-#If you want to run SingleR, run this
 ```{r}
+# If your predictions look reasonable, you can relabel the clusters in your seurat_integrated object to have those predicted names, instead of just numbers as they have by default
 predicted_labels <- predictions@listData$first.labels
 names(predicted_labels) <- levels(seurat_integrated)
 seurat_integrated <- RenameIdents(seurat_integrated, predicted_labels)
@@ -480,6 +357,7 @@ DimPlot(seurat_integrated, reduction="umap", label=TRUE, pt.size=0.5, group.by="
 ```
 
 ```{r}
+# A Nebulosa function (see the code chunk at the top where we loaded different libraries for instructions on running this code chunk) - Nice plots for lowly expressed genes
 plot_density(seurat_integrated, features=c("Foxp3", "Odc1"), joint=TRUE) + facet_wrap(.~seurat_integrated$groups)
 ```
 
@@ -554,26 +432,7 @@ pc_data <- FetchData(seurat_integrated,
                      vars=columns)
 #FeaturePlot(seurat_integrated, reduction = "umap", features=pc_data, split.by="groups")
 ```
-```{r
-umap_label <- FetchData(seurat_integrated,
-                       vars=c("ident", "UMAP_1", "UMAP_2")) %>%
-  group_by(ident) %>%
-  summarise(x=mean(UMAP_1), y=mean(UMAP_2))
 
-purrr::map(paste0("PC_", 1:22), function(pc) {
-  ggplot(pc_data,
-         aes(UMAP_1, UMAP_2)) +
-    geom_point(aes_string(color=pc),
-               alpha=0.7) +
-    scale_color_gradient(guide=FALSE,
-                         low="grey90",
-                         high="blue") +
-    geom_text(data=umap_label,
-              aes(label=ident, x, y)) +
-    ggtitle(pc)
-}) %>%
-  plot_grid(plotlist = .)
-```
 
 # To visualize the expression of different genes in the different groups across the cells, run this
 ```{r}
@@ -584,6 +443,7 @@ FeaturePlot(seurat_integrated, features=c("Vegfa", "Itgam", "Cd274"), min.cutoff
 
 
 ```{r}
+# If there is a population of cells that doesn't fall neatly within one of the k-means clusters but that you want to inspect more, you can manually select them like this
 plot <- DimPlot(seurat_integrated, reduction="umap", label=TRUE) + NoLegend()
 myeloid_t_cells <- CellSelector(plot)
 #write.csv(myeloid_t_cells, "myeloid_t_cells.csv")
@@ -591,6 +451,7 @@ myeloid_t_cells <- CellSelector(plot)
 
 # Set this up to find all clusters conserved markers
 ```{r}
+# You can then see which genes are conserved between two clusters like this - you can do this for clusters that you manually select with CellSelector() or clusters that are generated by way of k-means clustering
 #myeloid_t_cells <- read.csv("myeloid_t_cells.csv")
 #head(myeloid_t_cells)
 Idents(seurat_integrated, cells = myeloid_t_cells) <- "myeloid_t_cells"
@@ -606,6 +467,7 @@ DimPlot(seurat_integrated, reduction="umap", label=T)
 
 # myeloid_t_cell markers - vs. clusters 17 and 9
 ```{r}
+# You can then see which genes are differentially expressed in a cluster (relative to another cluster that you specify) like this - you can do this for clusters that you manually select with CellSelector() or clusters that are generated by way of k-means clustering
 myeloid_t_cell_17_markers <- FindMarkers(seurat_integrated, ident.1="myeloid_t_cells", ident.2="17", min.pct=0.05, logfc.threshold=0.20, test.use="roc")
 write.csv(myeloid_t_cell_17_markers, "myeloid_t_cell_17_markers.csv")
 ```
@@ -621,33 +483,10 @@ write.csv(seurat_integrated@meta.data, "seurat_integrated_metadata.csv")
 ```
 
 
-
-
 ```{r}
-head(cells.8)
-Idents(seurat_integrated, cells="cells.8") <- "cells.8"
-
-```
-
-
-```{r}
-# pdf("0_9_percent_mt_seurat_integrated_umap.pdf")
-DimPlot(seurat_integrated, reduction="umap", label=TRUE, split.by="groups") + NoLegend()
-# dev.off()
-```
-
-```{r}
-# pdf("0_9_percent_mt_seurat_integrated_umap.pdf")
-plot <- DimPlot(seurat_integrated, reduction="umap", label=TRUE) + NoLegend()
-HoverLocator(plot=plot, information=FetchData(seurat_integrated, vars = c("ident", "PC_1", "nCount_RNA")))
-# dev.off()
-```
-
-```{r}
+# You can change the identity of individual cell clusters (in your dataframe-data and UMAP) by using the names() function and then the RenameIdents() functions
 new.cluster.ids <- c("0", "1", "2", ".", "4", "Tumor", "6", ".", "8", ".", ".", "11", "12", "NK Cells", "14", "15", "16", "CD8 T cells", "cDC1", "Astrocytes/Oligodendrocytes", "20", "21", "cDC2", "23", "24", "25", "26", "Endothelial cells", "28")
-```
 
-```{r}
 #names(new.cluster.ids) <- levels(seurat_integrated)
 #seurat_integrated <- RenameIdents(seurat_integrated, new.cluster.ids)
 DimPlot(seurat_integrated, reduction="umap", label=TRUE)
@@ -682,17 +521,9 @@ DimPlot(seurat_integrated, reduction="umap", label=TRUE)
 
 
 ```{r}
+# Below, I have printed the first and second principal components (dims=1:2) of the data, each with the first most significant genes (nfeatures=5)
 print(seurat_integrated[["pca"]], dims=1:2, nfeatures=5)
 ```
-
-```{r}
-#pdf("ccl5_xcl1_xcr1.pdf")
-FeaturePlot(seurat_integrated, reduction="umap", features=c('Ccl5', 'Xcl1', 'Xcr1'), min.cutoff='q10', split.by="groups")
-#dev.off()
-```
-
-
-
 
 
 ```{r}
@@ -720,37 +551,10 @@ min_size = splits %>%
 seurat_obj = seurat_obj[, cell_subset]
 ```
 
+
+# Run this first
 ```{r}
-Seurat::FeaturePlot(
-  seurat_obj,
-  features = c("signature_score", "Cd3d", "Trdc", "Trgc1",   "Trgc2", "Cd8a", "Cd8b"),
-  split.by="type",
-  min.cutoff=0.1
-)
-```
-
-
-
-```{r}
-#pdf("gzma_klrb1c_ncr1_CTRL.pdf")
-FeaturePlot(CTRL, reduction="umap", features=c("mm10---Tap2", "mm10---H2-Ab1", "mm10---Cd74"), min.cutoff='q10')
-#dev.off()
-```
-
-```{r}
-#pdf("gzma_klrb1c_nrc1_TREAT.pdf")
-FeaturePlot(TREAT, reduction="umap", features=c("mm10---Tap2", "mm10---H2-Ab1", "mm10---Cd74"), min.cutoff='q10')
-#dev.off()
-```
-
-
-
-
-
-
-
-
-```{r}
+### Ignore the details of this function, it basically counts the number of gene transcripts that were recorded for a particular gene
 GeneCounter <- function(
   object,
   pattern = NULL,
@@ -771,21 +575,3 @@ GeneCounter <- function(
   return(percent.featureset)
 }
 ```
-
-```{r}
-get_conserved <- function(cluster) {
-  FindConservedMarkers(seurat_integrated,
-                       ident.1=cluster,
-                       grouping.var="groups") %>%
-    rownames_to_column(var="genes") %>%
-    left_join(y=unique(annotations[, c("gene_name", "description")]),
-              by=c(seurat_integrated@meta.data$assays@RNA$counts@Dimnames[[1]] = "gene_name")) %>%
-    cbind(cluster_id = cluster, .)
-} 
-```
-
-```{r}
-conserved_markers <- map_dfr(seurat_integrated@meta.data$seurat_clusters, get_conserved)
-write.csv(conserved_markers, "all_clusters_conserved_markers.csv")
-```
-
