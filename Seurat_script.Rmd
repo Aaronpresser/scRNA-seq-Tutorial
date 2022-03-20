@@ -2,21 +2,36 @@
 title: 'Lesniak Lab (Aaron Presser): Peng''s siRNA therapy - Seurat script'
 output: html_document
 ---
+### I have/will added an R tutorial to this GitHub repository - it will show you how to install and set up R and is relatively comprehensive in showing you how to use it, and after you work through it and understand it, you should be competent enough to follow the tutorial here and do a good scRNA-seq analysis
+
 ### Future references
 ```{r}
+### Preprocessing single cell data
+# This link will teach you a bit more about feature data, how it's used, why, it's used, etc. - it's helpful for understanding what is going on (https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/feature-bc)
+# This link will tell you the different functions you have available for preprocessing your data, when you might use each function, and some possible arguments you can set for each function (https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/what-is-cell-ranger)
+# This link will give you some tutorials on how to use the different preprocessingn frunctions
+# There's also an example script in this GitHub repository on how to use the cellranger ```counts``` function - it is similar to the example in the tutorial a couple links up but it may be helpful to see another example
+# Here are tutorials on using the Mac/Linux "command line" in your terminal application on your computer, which you will have to use in order to do these preprocessing things (https://www.youtube.com/watch?v=YHFzr-akOas) - for the Windows "command line," look here (https://www.cs.princeton.edu/courses/archive/spr05/cos126/cmd-prompt.html). Also Google around for other pedagogical presentations of the "command line," or if there are things that you don't particular understand how to do (e.g., "linux command line tutorial")
+
+
+### scRNA-seq analysis
 # I found this to be a very useful course: (https://github.com/hbctraining/scRNA-seq) - the lessons can be found in the "lessons" folder
 # To learn more about data visualization in Seurat, look here (https://satijalab.org/seurat/articles/visualization_vignette.html) and here (https://satijalab.org/seurat/archive/v3.0/visualization_vignette.html)
-# 
+# Biostars.com is useful for everything bioinformatic (RNA-seq analysis in particular)
 
-```
+### Troubleshooting
+# I have/will added an R tutorial to this GitHub repository - check there to see if you are using basic functions correctly
+# This is another R tutorial - it is more comprehensive, but will take you longer to go through, and also perhaps to refer back to in the future, but still a very useful resource (
+# First, with the exception of your dataset having different names, etc. than the ones in this tutorial or on the reference pages, if you are having trouble running a particular line of code, make sure the syntax of a particular line aligns EXACTLY with the syntax used either in this tutorial here, or on the reference page (you can find how to use very Seurat function here: https://satijalab.org/seurat/reference/)
+# If you are having an issue running a particular line of code, GOOGLE IT! Someone has likely had your same issue before. If you poke around enough, you will often find an answer on Biostars, some random message board, or ...
+# Seurat's GitHub issue page has a number of questions from people just like you, who are doing things very similar to you. Many of them have been answered - definintely try to find an answer there. If you can't, feel free to ask your question there as well.
 
-```{r}
-BiocManager::install("Seurat")
 ```
 
 
 # Load data and basic data cleaning - Run this
 ```{r}
+# If there are libraries that are not installed, look at the "Installing packages" part of the basic R tutorial in this repository and look here (https://stackoverflow.com/questions/53336632/what-is-the-code-to-install-biocmanager-package)
 ### If you want to visualize the locations of lowly expressed genes (like transcription factors, etc.), remove the "#" in front of the line "library(Nebulosa)" and put a "#" in front of the line "library(Seurat)"
 #library(Nebulosa)
 library(Seurat)
