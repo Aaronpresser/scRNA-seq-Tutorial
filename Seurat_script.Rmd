@@ -8,10 +8,15 @@ output: html_document
 ```{r}
 ### Preprocessing single cell data
 # This link will teach you a bit more about feature data, how it's used, why, it's used, etc. - it's helpful for understanding what is going on (https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/feature-bc)
-# This link will tell you the different functions you have available for preprocessing your data, when you might use each function, and some possible arguments you can set for each function (https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/what-is-cell-ranger)
+# This link will tell you the different functions you have available for preprocessing your data, when you might use each function, and some possible 
+# arguments you can set for each function (https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/what-is-cell-ranger)
 # This link will give you some tutorials on how to use the different preprocessingn frunctions
-# There's also an example script in this GitHub repository on how to use the cellranger ```counts``` function - it is similar to the example in the tutorial a couple links up but it may be helpful to see another example
-# Here are tutorials on using the Mac/Linux "command line" in your terminal application on your computer, which you will have to use in order to do these preprocessing things (https://www.youtube.com/watch?v=YHFzr-akOas) - for the Windows "command line," look here (https://www.cs.princeton.edu/courses/archive/spr05/cos126/cmd-prompt.html). Also Google around for other pedagogical presentations of the "command line," or if there are things that you don't particular understand how to do (e.g., "linux command line tutorial")
+# There's also an example script in this GitHub repository on how to use the cellranger ```counts``` function - it is similar to the example in the 
+# tutorial a couple links up but it may be helpful to see another example
+# Here are tutorials on using the Mac/Linux "command line" in your terminal application on your computer, which you will have to use in order to do these 
+# preprocessing things (https://www.youtube.com/watch?v=YHFzr-akOas) - for the Windows "command line," look here 
+# (https://www.cs.princeton.edu/courses/archive/spr05/cos126/cmd-prompt.html). Also Google around for other pedagogical presentations of the "command 
+# line," or if there are things that you don't particular understand how to do (e.g., "linux command line tutorial")
 
 
 ### scRNA-seq analysis
@@ -27,11 +32,18 @@ output: html_document
 
 ### Troubleshooting
 # I have/will added an R tutorial to this GitHub repository - check there to see if you are using basic functions correctly
-# This is another R tutorial - it is more comprehensive, but will take you longer to go through, and also perhaps to refer back to in the future, but still a very useful resource (here)
-# First, with the exception of your dataset having different names, etc. than the ones in this tutorial or on the reference pages, if you are having trouble running a particular line of code, make sure the syntax of a particular line aligns EXACTLY with the syntax used either in this tutorial here, or on the reference page (you can find how to use very Seurat function here: https://satijalab.org/seurat/reference/)
-# If you are having an issue running a particular line of code, GOOGLE IT! Someone has likely had your same issue before. If you poke around enough, you will often find an answer on Biostars, some random message board, or ...
-# Seurat's GitHub issue page has a number of questions from people just like you, who are doing things very similar to you. Many of them have been answered - definintely try to find an answer there. If you can't, feel free to ask your question there as well.
-# If googling doesn't work, perhaps concurrently with posting on Biostars or Seurat's GitHub issue page or a message board, email the IT department at your institution and ask them for help. They are often incredibly helpful and will solve most of your programming (but not actual analysis!) problems before they will be will be answered elsewhere. Look up "[my institution] research computing" or "[my institution] hpcc office" or "[my institution] it office" etc.
+# This is another R tutorial - it is more comprehensive, but will take you longer to go through, and also perhaps to refer back to in the future, but 
+# still a very useful resource (here)
+# First, with the exception of your dataset having different names, etc. than the ones in this tutorial or on the reference pages, if you are having 
+# trouble running a particular line of code, make sure the syntax of a particular line aligns EXACTLY with the syntax used either in this tutorial here, or 
+# on the reference page (you can find how to use very Seurat function here: https://satijalab.org/seurat/reference/)
+# If you are having an issue running a particular line of code, GOOGLE IT! Someone has likely had your same issue before. If you poke around enough, you 
+# will often find an answer on Biostars, some random message board, or ...
+# Seurat's GitHub issue page has a number of questions from people just like you, who are doing things very similar to you. Many of them have been 
+# answered - definintely try to find an answer there. If you can't, feel free to ask your question there as well.
+# If googling doesn't work, perhaps concurrently with posting on Biostars or Seurat's GitHub issue page or a message board, email the IT department at 
+# your institution and ask them for help. They are often incredibly helpful and will solve most of your programming (but not actual analysis!) problems 
+# before they will be will be answered elsewhere. Look up "[my institution] research computing" or "[my institution] hpcc office" or "[my institution] it office" etc.
 ```
 
 
