@@ -37,7 +37,7 @@ output: html_document
   trouble running a particular line of code, make sure the syntax of a particular line aligns EXACTLY with the syntax used either in this tutorial here, 
   or on the reference page (you can find how to use very Seurat function here: https://satijalab.org/seurat/reference/)
 - If you are having an issue running a particular line of code, GOOGLE IT! Someone has likely had your same issue before. If you poke around enough, you   
-  will often find an answer on Biostars, some random message board, or ...
+  will often find an answer on Biostars, StackOverflow, some random message board, or ...
 - Seurat's GitHub issue page has a number of questions from people just like you, who are doing things very similar to you. Many of them have been 
   answered - definintely try to find an answer there. If you can't, feel free to ask your question there as well.
 - If googling doesn't work, perhaps concurrently with posting on Biostars or Seurat's GitHub issue page or a message board, email the IT department at 
