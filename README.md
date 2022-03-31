@@ -1,4 +1,4 @@
-# single-cell-RNA-seq-Pipeline Tutorial
+# scRNA-seq Analysis Tutorial with Training Wheels
 Who is this intended for: Someone who has never used R, does not have R installed on their computer, and who certainly has 
 never analyzed scRNA-seq data themselves, but who knows what scRNA-seq analysis is.
 (If you don't know what scRNA-seq analysis is, this short article should tell you what you need to know - https://hbctraining.github.io/scRNA-seq/lessons/01_intro_to_scRNA-seq.html)
