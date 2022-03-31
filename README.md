@@ -1,6 +1,6 @@
 # single-cell-RNA-seq-Pipeline Tutorial
 Who is this intended for: Someone who has never used R, does not have R installed on their computer, and who certainly has 
-never analyzed scRNA-seq data themselves, but who knows what scRNA-seq analysis is
+never analyzed scRNA-seq data themselves, but who knows what scRNA-seq analysis is.
 (If you don't know what scRNA-seq analysis is, this short article should tell you what you need to know - https://hbctraining.github.io/scRNA-seq/lessons/01_intro_to_scRNA-seq.html)
 
 Why create a new tutorial: A lot of the best scRNA-seq tutorial assume that the person using them has experience using R. Many of the wet-lab biologist I know do not. I want this repository to make better tutorials (in particular, Harvard's) accessible to people who have never used R before, and who have no programming experience.
