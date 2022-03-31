@@ -1,0 +1,777 @@
+---
+This tutorial was created by Eric Gilliam (egillia3@alumni.stanford.edu) for Dr. Steven Levitt's class "Data Construction and Interpretation 
+in Economic Applications", a class he TA'd, offered at the University of Chicago in the Spring of 2021. It is included, without edit, at his courtesy.
+
+title: "Econ 213 RStudio Tutorial: Where it pays to go to school"
+author: "Eric Gilliam"
+email: "egillia3@alumni.stanford.edu"
+output: html_document
+---
+## Downloading and installing R and Rstudio
+
+First things first, you need to download R for your computer. Download the 
+appropriate mac or windows version here:
+https://cran.rstudio.com/
+
+Next, you need to download Rstudio. Download the appropriate mac or windows 
+version here:
+https://rstudio.com/products/rstudio/download/#download
+
+I'm pretty sure you don't have to install xquartz, but if in the 
+end you can't knit install it from here:
+https://www.xquartz.org/. But just don't worry about this until they very end
+of the tutorial
+
+
+# Learning Some of the Basics
+
+If you're reading this, then it means that you've successfully installed 
+RStudio, which, frankly, is pretty much half the battle when it comes to 
+learning R.
+
+We're going to do a little tutorial to learn some of the basics in R. Now,
+like any coding language, no matter how much is covered in this tutorial, you'll
+run into a new problem/bug like every third line. And, like in every other
+coding language, the best way to solve the problem is usually some combination
+of Googling, asking a friend, and repeatedly trying again until the gods of R
+have decided that you've had enough suffering. 
+
+The document we're in right now is called an Rmarkdown document. In these
+documents, you can write text outside of the code chunks (where you're reading
+now) and write code in what are called code chunks. You'll see what a code
+chunk is in a second.
+
+## Installing and Loading Libraries
+
+The first thing we will do is install and load in all of the required packages.
+You only need to install a package once on each computer, but you will need to
+load the packages at the start of each R session. (you install using 
+install.packages() and load using library())
+
+
+First things first, run each of the following 4 lines of code one by one in the
+console one by one:
+  - install.packages("ggplot2")
+  - install.packages("tidyverse")
+  - install.packages("stringr")
+  - install.packages("devtools)
+
+If you don't know how to do this, here's the step by step guide:
+  - make sure the console tab is open at the bottom of your RStudio screen
+  (The options are Console, Terminal R markdown, and Jobs). Click Console
+  - copy the line of code from above (one at a time)
+  - paste the line of code next to the '>' character
+  - hit enter
+  - things should happen in the console (don't worry about what they mean)
+  - if it prompts you to answer a question, probably just type 'Yes' and hit enter
+  - if something goes wrong, then google it and do whatever google tells you to
+  do, but the odds are nothing will go wrong
+  
+Once this is done, do the same thing with install.packages("glue") and
+install.packages("fs"), but for these two when it prompts you to write Yes
+or no, write no.
+  
+
+The above lines are how you install packages. If you do already have them 
+installed, then I think this will just update them or reinstall them. If you have
+them installed already, then you don't have to run them probably
+
+Below, the thing that starts with these things ``` is called a code chunk, 
+this is where you will write your code. The keyboard short cut to create a new 
+code chunk in a Mac is control + option + i. The keyboard shortcut for a PC is 
+control + alt + i (I think).
+
+From now on, we will not be running lines of code in the console, but, rather,
+inside the code chunks. To run the lines of code in the code chunks, you have 
+three different options:
+  (1) You can click the green arrow in the top right of the chunk to run the entire 
+      chunk at once
+  (2) highlight a group of lines and hit command + enter if you just
+      want to run that subset of lines
+  (3) put your cursor on a line and hit command enter if you just want to run an 
+      individual line
+
+Below, we will load the packages we installed. You need to load packages at the
+start of each R session.
+
+```{r}
+## Everybody should run these lines now matter what
+library(ggplot2)
+library(tidyverse)
+library(stringr)
+
+
+
+
+## The lines that start with '##' are known as comments. Comments are how you
+## write text and notes to yourself from within a code chunk. If a line starts
+## with '##', then RStudio knows to ignore that line/text when compiling code
+```
+
+## A Note
+
+I used my sister, Serena, as a guinea pig for this tutorial. And from that 
+experience I'll leave you with four pieces of advice/factoids that will help you
+get through this tutorial:
+  (1) Run every line of code in all the code chunks (I thought that was obvious)
+  (2) Even if you don't know what something means, still run the line of code 
+      (as per (1))
+  (3) If you don't know what something means or get confused, you can probably
+      just run the line and hope that it'll sink in later on
+  (4) a 'Kiwi' is a person from New Zealand
+
+## Reading in Datasets
+
+The next thing we are going to do is read in a csv into R. To do this, first
+go to this link and download the salaries-by-college-type.csv dataset:
+https://www.kaggle.com/wsj/college-salaries/version/1#salaries-by-college-type.csv
+
+We are going to write the path to the file in your computer in quotes in the 
+command below. The path below is the path to the file in my computer as an 
+example.
+
+We will be using the function read_csv because the object we are trying to
+read in is a .csv. There is also a read_dta function in the haven package for
+reading in state files and a read_excel function in the read_xl package if
+you want to read in xlsx files. If you didn't understand any of that, just 
+don't worry about it for now
+
+```{r}
+##run this line, but change the file path to be the path in your computer, not 
+## mine
+read_csv("/Users/ericmatthewgilliam/Downloads/salaries-by-college-type.csv")
+
+
+```
+
+If the above line of code worked, then there should have been a green flash
+on the left side of the chunk and some snapshots of the data should have 
+appeared below the code chunk for you to look through. It's like magic
+
+Now, here's the thing, if you want any object in R to continue to exist in
+a way that you can reference it/use it later, then you will have to 'assign' it
+a name. 
+
+To do this, you just put a name you've picked at the start of the line,
+followed by an arrow '<-' and then write the line of code which creates
+the object, variable, or whatever it is you're creating
+
+```{r}
+##run this line to load in the dataset and save it using the name college_data
+## Again, change the file path to the path in your computer
+college_data <- read_csv("/Users/ericmatthewgilliam/Downloads/salaries-by-college-type.csv")
+
+##Now that you've run this line, in the top right of your screen, under Global
+##Environment, click on college_data and you should be able to view the whole 
+## dataset in R
+
+##another way to do this is to run the line View(college_data) in the console
+
+
+```
+
+## Getting to know your data
+
+First , let's get to know our data a bit.
+
+```{r}
+## Run the following line to see how many rows are in the data (how many colleges
+## are in the dataset)
+nrow(college_data)
+```
+
+
+```{r}
+##Run the following line to see your column names
+colnames(college_data)
+```
+
+
+```{r}
+##Run the following line to see all of the different unique values in the 
+## School type column
+unique(college_data$`School Type`)
+
+## For reference, if you simply write the name of the dataset followed by a
+## dollar sign such as college_data$ , a drop down menu should appear with
+## all of the columns in the dataset. 
+
+unique(college_data$`Starting Median Salary`)
+
+```
+
+Before we start graphing our data, let's take a look at each of the columns
+to make sure that the columns are of the type we believe they are
+
+```{r}
+## Run the following line of code to ensure that your columns of numbers 
+## are being stored as integers or double (numeric types) rather than as
+## characters. 
+typeof(college_data$`Starting Median Salary`)
+```
+
+
+```{r}
+## It appears that the median salary column is being stored as a character
+
+## run the following line to see if all of the columns that should be numbers
+## are being stored a characters
+glimpse(college_data)
+```
+
+Let's change these columns from character types to doubles. A type 'double'
+means a column is a numeric type with decimals
+
+I'm not going to get in to what are strings vs booleans vs doubles vs integers
+in this tutorial, but just know that the reason we have to change the strings
+that look like numbers to actual numbers is because, to the computer, trying 
+to add together any two strings, even if they look like numbers, is like telling
+it to add together the words "Eric" and "cool". Like yeah, it makes sense to 
+you because you get it, but the computer does not. I checked.
+
+I will show two ways to make new columns
+
+But first I'm gonna remove the dollar signs from the columns. You can 
+ignore this next chunk of code
+
+Run this next chunk of code by clicking the green arrow, but don't worry about
+what's happening
+
+```{r}
+##ignore
+college_data <-
+  college_data %>% 
+  mutate(
+    `Starting Median Salary` = 
+      str_replace(`Starting Median Salary`, c('\\$'), ""),
+    `Mid-Career Median Salary` = 
+      str_replace(`Mid-Career Median Salary`, '\\$', ""),
+    `Mid-Career 10th Percentile Salary` = 
+      str_replace(`Mid-Career 10th Percentile Salary`, '\\$', ""),
+    `Mid-Career 25th Percentile Salary` = 
+      str_replace(`Mid-Career 10th Percentile Salary`, '\\$', ""),
+    `Mid-Career 50th Percentile Salary` = 
+      str_replace(`Mid-Career 10th Percentile Salary`, '\\$', ""),
+    `Mid-Career 75th Percentile Salary` = 
+      str_replace(`Mid-Career 10th Percentile Salary`, '\\$', ""),
+    `Mid-Career 90th Percentile Salary` = 
+      str_replace(`Mid-Career 10th Percentile Salary`, '\\$', ""),
+    `Starting Median Salary` = 
+      str_replace(`Starting Median Salary`, c('\\,'), ""),
+    `Mid-Career Median Salary` = 
+      str_replace(`Mid-Career Median Salary`, '\\,', ""),
+    `Mid-Career 10th Percentile Salary` = 
+      str_replace(`Mid-Career 10th Percentile Salary`, '\\,', ""),
+    `Mid-Career 25th Percentile Salary` = 
+      str_replace(`Mid-Career 10th Percentile Salary`, '\\,', ""),
+    `Mid-Career 50th Percentile Salary` = 
+      str_replace(`Mid-Career 10th Percentile Salary`, '\\,', ""),
+    `Mid-Career 75th Percentile Salary` = 
+      str_replace(`Mid-Career 10th Percentile Salary`, '\\,', ""),
+    `Mid-Career 90th Percentile Salary` = 
+      str_replace(`Mid-Career 10th Percentile Salary`, '\\,', ""),
+  )
+```
+
+Okay now I'll actually show you how to make new columns
+
+Below we will change the columns that look like numbers, but are actually
+characters, to actually be numbers
+
+
+```{r}
+## The first way to make a new column is using base R. To make new columns in 
+## base R you write the name of the dataset, followed by the dollar sign,
+##  followed by what you want the new column to be called and an arrow
+## then you perform the operation to create the column
+
+## We will make a new column named starting_median_salary below
+college_data$starting_median_salary <- as.double(college_data$`Starting Median Salary`)
+
+##running this line of code prints the column below
+college_data$starting_median_salary
+##looks good
+```
+
+
+
+What we just did was make a completely new column. In reality, the 
+old columns that are listing numbers as strings are useless to us. So,
+instead of making brand new columns, we will replace the old ones with the new
+ones. The best way to do this is to make a new column that has the exact same
+name as the old column. This effectively overwrites the old column with the 
+new column
+
+I'll demonstrate this to you using the second method of column creation 
+which is creating columns using the tidyverse. This means we will be using
+pipe operators ( %>% ) which can be typed using control + shift + m
+and the mutate function
+
+Using the tidyverse and pipe operators frees you from constantly having to
+type the name of the dataset followed by the dollar sign. Instead, you
+start your lines with the name of the dataset followed by the pipe operator,
+after that you do not have to write the name of the dataset again, just the
+column names. Also, it's  much easier to read, which makes it easier for you
+to de-bug your code when you inevitably run in to problems
+
+The mutate function creates new columns, and I will use that below
+Below, we create the new columns of type double and save the dataset
+After this, this dataset should be ready to play with
+
+If some of this doesn't make sense yet, just roll with it and some of it will
+sink in as you go on. You'll start to see the patterns
+
+```{r}
+college_data <-
+  college_data %>% 
+  mutate(
+    `Starting Median Salary` = as.double(`Starting Median Salary`),
+    `Mid-Career Median Salary` = as.double(`Mid-Career Median Salary`),
+    `Mid-Career 10th Percentile Salary` = as.double(`Mid-Career 10th Percentile Salary`),
+    `Mid-Career 25th Percentile Salary` = as.double(`Mid-Career 25th Percentile Salary`),
+    `Mid-Career 50th Percentile Salary` = as.double(`Mid-Career 50th Percentile Salary`),
+    `Mid-Career 75th Percentile Salary` = as.double(`Mid-Career 75th Percentile Salary`),
+    `Mid-Career 90th Percentile Salary` = as.double(`Mid-Career 90th Percentile Salary`)
+  )
+
+glimpse(college_data)
+
+##Since we made two starting median salary columns by different names, you can
+## remove the first one by doing this
+
+college_data <-
+  college_data %>% 
+  select(-starting_median_salary)
+
+##If you did't understand how the above line worked, just move on and don't 
+## worry about it for now
+
+## and if you're a perfectionist who refuses to move on until you understand
+## exactly how every single piece of code you run works backwards and forwards,
+## then coding is going to be a very frustrating experience for you
+```
+
+If at any point you really need/want to know how a function works. Just write
+the name of the function preceded by a '?' and run the line, and the RDocumentation
+for that function should show up in the bottom right quadrant of your RStudio
+screen
+
+For example, run the following line of code below.
+```{r}
+?read_csv
+```
+
+Some descriptions of how the function works should have appeared on the right
+side of your screen. If after looking at this documentation you are still 
+confused, Google is your best friend. 
+
+## First things first, I want to know what the party schools are
+
+Before we move on, we all probably want to know what the Wall Street
+Journal classified as the 'Party' schools. So I'll show you how to do that
+
+We use the filter function, which filters out all of the rows that don't match
+the given condition
+
+```{r}
+party_schools <-
+  college_data %>% 
+  filter(`School Type` == "Party") ## in R you use == to check if two things are equal
+
+party_schools
+
+```
+
+Now, I know what you're all thinking, "How in the hell is UChicago not on there?!"
+
+Well, I looked into it, and UChicago isn't in the dataset as a whole. I think
+it's safe to say you'd have made it into the 'Party' school category if you
+were included. 
+
+Like all the kids at UT Austin would tell you, "Nothing makes a good party like
+some rigorous Marx discussion with indie folk music playing at a tasteful
+volume in the background."
+
+## Basic Graphics and Data Manipulation in R
+
+We are going to use tidyverse and ggplot to make some basic visualizations
+to explore your data. Ggplot and tidyverse are the best and you should 
+use them. The guy who wrote them, Hadley Wickham, just won the equivalent
+of the Nobel Prize in statistics, is a Kiwi, and has phenomenal taste in 
+earrings. So, you should obviously do what he says.
+
+Below, I am going to show you a bunch of different examples of basic graphics
+and data manipulations so you can get the hang of how things are done and which
+you can refer back to for some basic guidance.
+
+You might not understand exactly how all of the lines being run below work,
+and that's fine. I could explain it all, but it would make the tutorial 
+convoluted and not very focused/efficient. Just make sure you get the
+gist of how these work. The goal is to show you what's possible and roughly 
+how to mimic the code below to make your own graphs even if you don't 
+understand why everything works. 
+
+If you want to know more, you can just come to my office hours.  
+
+### Histogram
+Let's take a look at the distribution of starting median salaries
+in the dataset
+
+We will make these graphs using ggplot and geom_histogram
+
+```{r}
+college_data %>% 
+  ggplot(aes(x = `Starting Median Salary`)) +
+  geom_histogram()
+```
+
+Note, after ggplot lines you use plus signs as opposed to pipe operators (%>%),
+there's no particular reason for this. I think one time Hadley told my class
+that the only reason this is the case is because he wrote ggplot first and he
+didn't feel like going back and changing it after he'd worked on the tidyverse.
+
+## Scatter Plot
+
+Let's make a scatter plot of starting median salaries and median mid career
+salaries
+
+We will make this using geom_point
+
+```{r}
+college_data %>% 
+  ggplot(aes(x = `Starting Median Salary`, y = `Mid-Career Median Salary`)) +
+  geom_point()
+```
+
+Unsurprisingly these are extremely highly correlated. Let's fit a quick curve
+to this data using geom_smooth
+
+```{r}
+college_data %>% 
+  ggplot(aes(x = `Starting Median Salary`, `Mid-Career Median Salary`)) +
+  geom_point() +
+  geom_smooth()
+```
+
+
+### Ordering Tables
+
+
+Below, let's arrange a table from highest starting salaries to lowest
+starting salaries
+
+We will do this using the arrange function
+```{r}
+##This orders the rows from lowest to highest
+college_data %>% 
+  arrange(`Starting Median Salary`)
+
+##to reverse this just put a minus sign in front starting median salary
+college_data %>% 
+  arrange(-`Starting Median Salary`)
+```
+
+
+```{r}
+## if you would like to just look at a subset of columns, then use the select
+## function and pick the columns you'd like to see
+college_data %>% 
+  arrange(-`Starting Median Salary`) %>% 
+  select(`School Name`, `Starting Median Salary`)
+```
+
+
+```{r}
+## if you'd like to only see the top 20 schools, once you've used arrange,
+## you can use the slice function
+college_data %>% 
+  arrange(-`Starting Median Salary`) %>% 
+  select(`School Name`, `Starting Median Salary`) %>% 
+  slice(1:20)
+
+## To save all of the information for the top 20 schools just use the assignment
+## operator
+
+top_20_schools <-
+  college_data %>% 
+  arrange(-`Starting Median Salary`) %>% 
+  slice(1:20)
+
+
+```
+
+
+
+## Grouping Tables
+
+What if we wanted to Look at the mean/median incomes for each school type?
+
+The best way to do this is using the group_by() and summarise() functions in the
+tidyverse
+
+The group_by operator indicates that you want a certain operation done only
+on a specific grouping of rows, such as wanting the median FOR EACH type
+of school
+
+Look at the output of the code below
+```{r}
+college_data %>% 
+  group_by(`School Type`) %>% 
+  summarise(median_starting_salary = median(`Starting Median Salary`))
+```
+
+group_by() tells the data that you want to only have the operation done using
+schools in the same group
+
+summarise() creates a new column that compresses all of the data points in a 
+given group, such as party schools, to a single value (such as the mean or sum
+of a column for that group)
+
+
+Below we will make a similar table, but including the median starting
+salary, the standard deviation of those values, the median mid career
+salary, and the standard deviation of those values
+
+```{r}
+college_data %>% 
+  group_by(`School Type`) %>% 
+  summarise(
+    median_starting_salary = median(`Starting Median Salary`),
+    sd_starting_salary = sd(`Starting Median Salary`),
+    median_midcareer_salary = median(`Mid-Career Median Salary`),
+    sd_midcareer_salary = sd(`Mid-Career Median Salary`)
+    )
+```
+
+Below I will make the same table, but using means instead of medians
+
+```{r}
+college_data %>% 
+  group_by(`School Type`) %>% 
+  summarise(
+    mean_starting_salary = mean(`Starting Median Salary`),
+    sd_starting_salary = sd(`Starting Median Salary`),
+    mean_midcareer_salary = mean(`Mid-Career Median Salary`),
+    sd_midcareer_salary = sd(`Mid-Career Median Salary`)
+    )
+```
+
+Now, let's say you wanted to look at mid career 10th percentile salaries
+to assess the worst case scenarios of attending a particular type of college
+
+We run into some complications. We get mostly NA's. Why is this?
+
+```{r}
+college_data %>% 
+  group_by(`School Type`) %>% 
+  summarise(
+    tenthpct_starting_salary = mean(`Mid-Career 10th Percentile Salary`),
+    sd_tenthpct_salary = sd(`Mid-Career 10th Percentile Salary`)
+    )
+```
+
+
+If you go look at the Mid-Career 10th Percentile Salary column in the dataset,
+you will see why. There are NA's in the column. NA's occur where no data was
+collected. If you try to perform an  operation on a column or vector with NA's, 
+this can tend to happen. R does not know how to include the NA in the average. 
+
+There are no NA's in mathematics, so that's something you have to use your own 
+judgement to take care of. Now, I know a lot of you might not trust  
+your judgement very much/if at all. But even if you're right in doubting your
+judgement, in these cases you kind of just have to make a call. In this scenario
+there are some common options:
+  
+  - make all NA's 0's (probably not a good call in this case)
+  
+  - calculate the mean of the column after removing those rows with NAs
+  
+  - replacing all of the NAs with the mean of the non NAs in the column
+  
+
+On the bright side, even if you get it wrong, in the real world people usually 
+don't check and see what you did. Now, it's probably best for your grade in this
+class and the University of Chicago's image that you not make too many 
+boneheaded mistakes. But, if we're being honest with each other, most people
+don't really know or care how a linear regression works. And if they don't care
+about that, then they probably REALLY don't care about what you did with your
+NA's. BUT, if someone ever does spot your mistake, then everything else you've
+shown in your analysis gets called into question. And that means you've wasted
+your time coding in RStudio instead of going out and being a cool kid for
+nothing. 
+
+Here's a funny House of Lies clip on the subject if you have nothing better to
+do: 
+https://www.youtube.com/watch?v=4cyvmF7GD8o (start at 3:00)
+
+Long story short: don't waste your own time, do the little things right
+
+Now, below I'll show you how to take the mean by removing the NA's. If you'd 
+like to know how to do this using median, just replace the mean function with median
+and you're in business, and if you'd like to know how to do this by replacing 
+NAs with the mean, you can  google it. It's called 'mean imputation'. Have fun
+
+```{r}
+college_data %>% 
+  group_by(`School Type`) %>% 
+  summarise(
+    tenthpct_starting_salary = mean(`Mid-Career 10th Percentile Salary`, na.rm = TRUE),
+    sd_tenthpct_salary = sd(`Mid-Career 10th Percentile Salary`, na.rm = TRUE)
+    )
+```
+
+Now, you're probably wondering, "Eric, can I graph this new data too?!"
+
+Yeah...you can graph everything and you can name everything (for the most part)
+
+```{r}
+college_data %>% 
+  group_by(`School Type`) %>% 
+  summarise(
+    tenthpct_starting_salary = mean(`Mid-Career 10th Percentile Salary`, na.rm = TRUE),
+    sd_tenthpct_salary = sd(`Mid-Career 10th Percentile Salary`, na.rm = TRUE)
+    ) %>% 
+  ggplot(aes(x = `School Type`, y = tenthpct_starting_salary)) +
+  geom_point()
+```
+
+Now, we're getting towards the end here. I hope you've been having as much fun
+as I have. And if you haven't then you're more than welcome to go do some
+random online R tutorial. I get paid regardless. Actually... I'm not even sure
+if I get paid. I haven't asked Steve
+
+Anyways, let's put together some of the skills we learned above and make a new
+column which calculates the increase between median starting salary and 
+median mid career salary for each school. We'll call this column
+poor_today_rich_tomorrow
+
+```{r}
+college_data <- 
+  college_data %>% 
+  mutate(poor_today_rich_tomorrow = `Mid-Career Median Salary` - `Starting Median Salary`)
+```
+
+Let's look at the distribution of these scores. It's good practice to always
+do this so you get a sense of your variables. A lot of economists are bad about doing
+this, but try to be better than them. Make them insecure (more insecure)
+
+```{r}
+college_data %>% 
+  ggplot(aes(poor_today_rich_tomorrow)) +
+  geom_histogram()
+```
+
+
+Now, let's make a graph so big it won't even fit on the screen. That should
+be fun and not at all useless.
+
+We're gonna make a graph where each point represents a single schools 
+poor_today_rich_tomorrow score
+
+```{r, fig.height=40, fig.width=10}
+##fct_reorder reorders the school names column by the rich_poor score
+##this makes the graph look prettier
+##if you don't understand it don't worry about it
+college_data %>% 
+  mutate(`School Name` = fct_reorder(`School Name`, poor_today_rich_tomorrow)) %>% 
+  ggplot(aes(`School Name`, poor_today_rich_tomorrow)) +
+  geom_point() +
+  coord_flip()
+  
+```
+
+This graph will look ugly here, but will look pretty and be helpful when it
+shows up in the knit html file at the end of the tutorial.
+
+Let's calculate the average poor_today_rich_tomorrow score for each type of school
+below
+
+```{r}
+college_data %>% 
+  group_by(`School Type`) %>% 
+  summarise(
+    mean_income_growth = mean(poor_today_rich_tomorrow, na.rm = TRUE),
+    sd_income_growth = sd(poor_today_rich_tomorrow, na.rm = TRUE)
+    )
+```
+
+Below, I'll make a graph with a title and labels from the data above
+
+```{r}
+college_data %>% 
+  group_by(`School Type`) %>% 
+  summarise(
+    mean_income_growth = mean(poor_today_rich_tomorrow, na.rm = TRUE),
+    sd_income_growth = sd(poor_today_rich_tomorrow, na.rm = TRUE)
+    ) %>% 
+  ggplot(aes(x = `School Type`, y = mean_income_growth)) +
+  geom_histogram(stat = "identity") +
+  labs(
+    title = "Must be Nice to go to an Ivy",
+    y = "Income Growth",
+    caption = "'But Mom, U of C is kind of like the Ivy League'"
+  )
+```
+
+
+## Regressions
+
+The last thing I'll show you how to do is fit a basic regression. 
+
+Below, we'll fit a multiple linear regression which attempts to use a school's
+median starting salary and the school type to predict a school's median
+mid-career salary
+
+The notation for this is pretty simple. 
+
+```{r}
+##This line runs the regression and saves it in linear_model
+linear_model <- lm(`Mid-Career Median Salary` ~ `Starting Median Salary` + `School Type`, data = college_data)
+
+##this line prints out the summary of your regression
+summary(linear_model)
+
+```
+
+The low p values in the 'Pr(>|t|)' column and those asterisks which the 
+economists love so much means that all of those variables above are 
+statistically significant and useful in predicting your mid career salary. The 
+'Estimate' column shows the coefficient of each variable in the multiple linear
+regression. The lm function which we just used can be used to fit all sorts 
+of regressions and curves and will probably be useful in your next assignment
+
+If you have any questions about this tutorial, the class, R coding in general,
+my favorite color (baby blue), or my hopes and dreams feel free to email me 
+at ericgilliam@uchicago.edu and I should get back to you pretty quickly OR you 
+can just drop into my office hours. 
+
+## In Conclusion
+
+Using RStudio is great because you can 'knit' the output of your file to html,
+pdf, or some other kind of file. Then your final analysis can be in a pretty,
+more easy to read form than this Rmarkdown file. The last step of this tutorial
+is to go to the top of the Rmarkdown screen and hit the 'Knit' button. It should
+knit this file to an html document that you can scroll through. If you want, you
+can save the html file and send it to people. Like, my mom would never care if I
+sent it to her (she doesn't even know what I do for a living), but maybe someone 
+in your life will care. idk
+
+
+.
+
+
+.
+
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
