@@ -1,5 +1,5 @@
 ---
-title: 'Lesniak Lab (Aaron Presser): Peng''s siRNA therapy - Seurat script'
+title: "Lesniak Lab (Aaron Presser): Peng's siRNA therapy - Seurat script"
 output: html_document
 ---
 ### I have/will added an R tutorial to this GitHub repository - it will show you how to install and set up R and is relatively comprehensive in showing
