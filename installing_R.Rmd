@@ -1,0 +1,4 @@
+Do both of these:
+Download R from here - https://cran.rstudio.com/ 
+Download Rstudio from here - https://rstudio.com/products/rstudio/download/#download
+Install XQuartz from here - https://www.xquartz.org/
