@@ -1,0 +1,151 @@
+# This code chunk for CTRL and TREAT processing
+```{r
+CTRL <- SCTransform(CTRL, method="glmGamPoi", variable.features.n=3500, vars.to.regress=c("human.percent.mt", "mouse.percent.mt"))
+CTRL <- RunPCA(CTRL, npcs=50, verbose=FALSE)
+CTRL <- RunUMAP(CTRL, dims=1:50, verbose=FALSE)
+CTRL <- FindNeighbors(CTRL, dims=1:50)
+CTRL <- FindClusters(CTRL)
+
+TREAT <- SCTransform(TREAT, method="glmGamPoi", variable.features.n=3500, vars.to.regress=c("human.percent.mt", "mouse.percent.mt"))
+TREAT <- RunPCA(TREAT, npcs=50, verbose=FALSE)
+TREAT <- RunUMAP(TREAT, dims=1:50, verbose=FALSE)
+TREAT <- FindNeighbors(TREAT, dims=1:50)
+TREAT <- FindClusters(TREAT)
+```
+
+```{r
+for (i in groups) {
+  markers.roc <- FindAllMarkers(i, min.pct=0.005, logfc.threshold=0.25, test.use="roc")
+  markers.roc.thresholded <- dplyr::filter(markers.roc, myAUC>=0)
+  markers.roc.thresholded.grouped <- markers.roc.thresholded %>% group_by(cluster)
+  markers.roc.thresholded.grouped.sorted <- markers.roc.thresholded.grouped %>% arrange(desc(myAUC), by_group=TRUE)
+  write(markers.roc.thresholded.grouped.sorted, file=paste0(i, '_markers_clustered_01022022.csv'))
+}
+```
+
+
+
+# Find and save CTRL and TREAT markers - min.cells=0.05, logfc=0.25
+```{r
+CTRL.markers.roc <- FindAllMarkers(CTRL, min.pct=0.005, logfc.threshold=0.25, test.use="roc")
+CTRL.markers.roc.thresholded <- dplyr::filter(CTRL.markers.roc, myAUC >= 0)
+CTRL.markers.roc.thresholded.grouped <- CTRL.markers.roc.thresholded %>% group_by(cluster)
+CTRL.markers.roc.thresholded.grouped.sorted <- CTRL.markers.roc.thresholded.grouped %>% arrange(desc(myAUC), by_group=TRUE)
+head(CTRL.markers.roc.thresholded.grouped.sorted)
+
+write.csv(CTRL.markers.roc.thresholded.grouped.sorted, file="CTRL_markers_clustered_01022022.csv")
+
+TREAT.markers.roc <- FindAllMarkers(TREAT, min.pct=0.005, logfc.threshold=0.25, test.use="roc")
+TREAT.markers.roc.thresholded <- dplyr::filter(TREAT.markers.roc, myAUC >= 0)
+TREAT.markers.roc.thresholded.grouped <- TREAT.markers.roc.thresholded %>% group_by(cluster)
+TREAT.markers.roc.thresholded.grouped.sorted <- TREAT.markers.roc.thresholded.grouped %>% arrange(desc(myAUC), by_group=TRUE)
+head(TREAT.markers.roc.thresholded.grouped.sorted)
+
+write.csv(TREAT.markers.roc.thresholded.grouped.sorted, file="TREAT_markers_clustered_01022022.csv")
+```
+
+
+# seurat_integrated plots
+```{r
+seurat_integrated <- RunPCA(seurat_integrated, dims=1:50)
+seurat_integrated <- RunUMAP(seurat_integrated, dims=1:50)
+seurat_integrated <- FindNeighbors(seurat_integrated, dims=1:50)
+seurat_integrated <- FindClusters(seurat_integrated)
+#Idents(seurat_integrated) <- "integrated_snn_res.1.0"
+DimPlot(seurat_integrated, reduction="umap", label=TRUE, label.size=3)
+```
+# Find markers of CTRL vs TREAT
+```{r
+seurat_integrated@meta.data[["seurat_clusters"]] <- as.numeric(seurat_integrated@meta.data[["seurat_clusters"]])
+cell.8.markers <- FindMarkers(seurat_integrated, ident.1=8, group.by="groups", assay="RNA")
+write.csv(cell.8.markers %>% group_by(cluster), 'cluster_8_markers_seurat_integrated_01072022.csv')
+```
+
+
+
+# Analyzing biological and technical features/variation in clusters
+```{r}
+n_cells <- FetchData(seurat_integrated,
+                     vars=c("ident", "orig.ident")) %>%
+  dplyr::count(ident, orig.ident) %>%
+  tidyr::spread(ident, n)
+
+View(n_cells)
+
+DimPlot(seurat_integrated,
+        label=TRUE,
+        split.by="groups") + NoLegend()
+
+DimPlot(seurat_integrated,
+        label=TRUE,
+        group.by="groups",
+        split.by="Phase") + NoLegend()
+
+# "nUMI", "nGene", "S.Score", "G2M.Score", 
+nUMI_nGene_nFeature <- c("MT_genes")#, "nCount_RNA", "nFeature_RNA")
+nCount_sscore_g2mscore <- c("MT_genes", "S.Score", "G2M.Score")
+
+t_cells <- WhichCells(seurat_integrated, expression = Itgam > 0 & Cd4 > 0)
+
+cells <- subset(seurat_integrated, idents=c(17,9))
+
+#pdf("nCountRNA_sscore_g2mscore.pdf")
+FeaturePlot(cells,
+            reduction="umap",
+            features=nUMI_nGene_nFeature,
+            #cells=cells,
+            pt.size=0.4,
+            sort.cell=TRUE,
+            min.cutoff='q10',
+            label=FALSE,
+            split.by="groups")
+#dev.off()
+
+columns <- c(paste0("PC_", 1:3),
+             "ident",
+             "UMAP_1", "UMAP_2")
+pc_data <- FetchData(seurat_integrated,
+                     vars=columns)
+#FeaturePlot(seurat_integrated, reduction = "umap", features=pc_data, split.by="groups")
+```
+
+
+
+```{r}
+# If there is a population of cells that doesn't fall neatly within one of the k-means clusters but that you want to inspect more, you can manually select them like this
+plot <- DimPlot(seurat_integrated, reduction="umap", label=TRUE) + NoLegend()
+myeloid_t_cells <- CellSelector(plot)
+#write.csv(myeloid_t_cells, "myeloid_t_cells.csv")
+```
+
+
+```{r}
+# Below, I have printed the first and second principal components (dims=1:2) of the data, each with the first most significant genes (nfeatures=5)
+print(seurat_integrated[["pca"]], dims=1:2, nfeatures=5)
+```
+
+
+```{r}
+seurat_obj = seurat_integrated
+signature_score_1 =
+  seurat_obj[c("Cd3d", "Trdc", "Trgc1", "Trgc2"),] %>%
+  Seurat::GetAssayData(assay="SCT", slot="data") %>%
+  colSums() %>%
+  scales::rescale(to=c(0,1))
+signature_score_2 =
+  seurat_obj[c("Cd8a", "Cd8b"),] %>%
+  Seurat::GetAssayData(assay="SCT", slot="data") %>%
+  colSums() %>%
+  scales::rescale(to=c(0,1))
+seurat_obj$signature_score = 
+  signature_score_1 - signature_score_2
+```
+
+```{r}
+splits = colnames(seurat_obj) %>%
+  split(seurat_obj$groups)
+min_size = splits %>%
+  lapply(function(x) sample(x, min_size)) %>%
+  unlist()
+seurat_obj = seurat_obj[, cell_subset]
+```
