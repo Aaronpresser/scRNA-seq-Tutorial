@@ -89,13 +89,11 @@ TREAT <- CreateSeuratObject(counts=TREAT.data, project="TREAT", min.cells=3, min
 ### "^", which we put in front of the pattern. If we want only the reads that end with a pattern, we use "$" instead and put it behind the pattern. Since
 ### each row in the dataframe is an individual cell, we then create a new column in the CTRL dataframe with the percentage of reads matching that pattern
 ### for each cell (e.g., the percentage of reads beginning with the pattern "MT-" for each cell).
-#CTRL[["human.percent.mt"]] <- PercentageFeatureSet(CTRL, pattern="^GRCh38-mt-")
 CTRL[["mouse.percent.mt"]] <- PercentageFeatureSet(CTRL, pattern="mt-")
-#TREAT[["human.percent.mt"]] <- PercentageFeatureSet(TREAT, pattern="^GRCh38-mt-")
 TREAT[["mouse.percent.mt"]] <- PercentageFeatureSet(TREAT, pattern="mt-")
 
 ### We can then create violin plots for the values in the columns we created, or any others that are already existing.
-VlnPlot(CTRL, features=c("nFeature_RNA", "nCount_RNA", "human.percent.mt"), ncol=3, log=TRUE)
+VlnPlot(CTRL, features=c("nFeature_RNA", "nCount_RNA", "mouse.percent.mt"), ncol=3, log=TRUE)
 VlnPlot(TREAT, features=c("nFeature_RNA", "nCount_RNA", "mouse.percent.mt"), ncol=3, log=TRUE)
 
 
@@ -103,17 +101,24 @@ VlnPlot(TREAT, features=c("nFeature_RNA", "nCount_RNA", "mouse.percent.mt"), nco
 CTRL[["MT_genes"]] <- GeneCounter(CTRL, pattern="mt-")
 TREAT[["MT_genes"]] <- GeneCounter(TREAT, pattern="mt-")
 
-CTRL[["Actb"]] <- GeneCounter(CTRL, pattern="Actb")
-TREAT[["Actb"]] <- GeneCounter(TREAT, pattern="Actb")
+library(glue)
+genes <- list("Actb", "Foxp3", "Odc1", "Cd3d")
+for (i in genes) {
+  glue(CTRL[["{i}_genes"] <- GeneCounter(CTRL, pattern="i"))
+  glue(TREAT[["{i}_genes"] <- GeneCounter(TREAT, pattern="i"))
+}
 
-CTRL[["Foxp3"]] <- GeneCounter(CTRL, pattern="Foxp3")
-TREAT[["Foxp3"]] <- GeneCounter(TREAT, pattern="Foxp3")
+#CTRL[["Actb"]] <- GeneCounter(CTRL, pattern="Actb")
+#TREAT[["Actb"]] <- GeneCounter(TREAT, pattern="Actb")
 
-CTRL[["Odc1"]] <- GeneCounter(CTRL, pattern="Odc1")
-TREAT[["Odc1"]] <- GeneCounter(TREAT, pattern="Odc1")
+#CTRL[["Foxp3"]] <- GeneCounter(CTRL, pattern="Foxp3")
+#TREAT[["Foxp3"]] <- GeneCounter(TREAT, pattern="Foxp3")
 
-CTRL[["Cd3d"]] <- GeneCounter(CTRL, pattern="Cd3d")
-TREAT[["Cd3d"]] <- GeneCounter(TREAT, pattern="Cd3d")
+#CTRL[["Odc1"]] <- GeneCounter(CTRL, pattern="Odc1")
+#TREAT[["Odc1"]] <- GeneCounter(TREAT, pattern="Odc1")
+
+#CTRL[["Cd3d"]] <- GeneCounter(CTRL, pattern="Cd3d")
+#TREAT[["Cd3d"]] <- GeneCounter(TREAT, pattern="Cd3d")
 
 ### We know we will want to filter our cells according to how many or how few unique genes are in each, and also according to how many or how few reads
 ### are in each cell, so we can create variables that have the values we want to use as our filtering thresholds, and we can plug these variables into the
@@ -136,14 +141,6 @@ FeatureScatter(CTRL, feature1="nCount_RNA", feature2="nFeature_RNA") + scale_y_l
 CTRL <- subset(x=CTRL, subset=nFeature_RNA > min_genes & nFeature_RNA < max_genes & nCount_RNA > min_reads & nCount_RNA < max_reads & mouse.percent.mt < 9 & mouse.percent.mt > 0)
 
 TREAT <- subset(x=TREAT, subset=nFeature_RNA > min_genes & nFeature_RNA < max_genes & nCount_RNA > min_reads & nCount_RNA < max_reads & mouse.percent.mt < 9 & mouse.percent.mt > 0)
-
-#mouse_CTRL <- CTRL[grepl(pattern="mm10---", rownames(CTRL[["RNA"]]))]
-#human_CTRL <- CTRL[grepl(pattern="GRCh38-", rownames(CTRL[["RNA"]]))]
-#mouse_TREAT <- TREAT[grepl(pattern="mm10---", rownames(TREAT[["RNA"]]))]
-#human_TREAT <- TREAT[grepl(pattern="GRCh38-", rownames(TREAT[["RNA"]]))]
-
-#human_CTRL <- subset(human_CTRL, nCount_RNA > 0)
-#human_TREAT <- subset(human_TREAT, nCount_RNA > 0)
 ```
 
 
@@ -185,128 +182,15 @@ g2m_genes <- cell_cycle_markers %>%
   pull("gene_name")
 ```
 ```{r}
-CTRL <- NormalizeData(CTRL)
-
-CTRL <- CellCycleScoring(CTRL, s.features=s_genes, g2m.features=g2m_genes, set.ident=TRUE)
-
-CTRL <- FindVariableFeatures(CTRL, selection.method="vst", nfeatures=3000, verbose=FALSE)
-CTRL <- ScaleData(CTRL)
-CTRL <- RunPCA(CTRL)
-
-
-TREAT <- NormalizeData(TREAT)
-
-TREAT <- CellCycleScoring(TREAT, s.features=s_genes, g2m.features=g2m_genes, set.ident=TRUE)
-
-TREAT <- FindVariableFeatures(TREAT, selection.method="vst", nfeatures=3000, verbose=FALSE)
-TREAT <- ScaleData(TREAT)
-TREAT <- RunPCA(TREAT)
-```
-
-
-```{r
-cc_file <- getURL("https://raw.githubusercontent.com/hbc/tinyatlas/master/cell_cycle/Homo_sapiens.csv")
-cell_cycle_genes <- read.csv(text=cc_file)
-
-# Connect to AnnotationHub
-ah <- AnnotationHub()
-# Access to Ensembl database for organism
-ahDb <- query(ah,
-              pattern = c("Homo Sapiens", "EnsDb"),
-              ignore.case=TRUE)
-# Acquire the latest annotation files
-id <- ahDb %>%
-  mcols() %>%
-  rownames() %>%
-  tail(n=1)
-# Download the appropriate Ensembld database
-edb <- ah[[id]]
-# Extract gene-level information from database
-annotations <- genes(edb,
-                     return.type="data.frame")
-# Select annotations of interest
-annotations <- annotations %>%
-  dplyr::select(gene_id, gene_name, seq_name, gene_biotype, description)
-# Get gene names for Ensembl IDs for each gene
-cell_cycle_markers <- dplyr::left_join(cell_cycle_genes, annotations, by = c("geneID" = "gene_id"))
-
-# Acquire the S phase genes
-s_genes <- cell_cycle_markers %>%
-  dplyr::filter(phase=="S") %>%
-  pull("gene_name")
-# Acquire the G2M phase genes
-g2m_genes <- cell_cycle_markers %>%
-  dplyr::filter(phase=="G2/M") %>%
-  pull("gene_name")
-```
-```{r
-human_CTRL <- NormalizeData(human_CTRL)
-
-human_CTRL <- FindVariableFeatures(human_CTRL, selection.method="vst", nfeatures=3000, verbose=FALSE)
-human_CTRL <- ScaleData(human_CTRL)
-human_CTRL <- RunPCA(human_CTRL)
-
-human_TREAT <- NormalizeData(human_TREAT)
-
-human_TREAT <- FindVariableFeatures(human_TREAT, selection.method="vst", nfeatures=3000, verbose=FALSE)
-human_TREAT <- ScaleData(human_TREAT)
-human_TREAT <- RunPCA(human_TREAT)
-```
-
-```{r
-CTRL <- merge(mouse_CTRL, human_CTRL)
-TREAT <- merge(mouse_TREAT, human_TREAT)
-```
-
-
-# This code chunk for CTRL and TREAT processing
-```{r
-CTRL <- SCTransform(CTRL, method="glmGamPoi", variable.features.n=3500, vars.to.regress=c("human.percent.mt", "mouse.percent.mt"))
-CTRL <- RunPCA(CTRL, npcs=50, verbose=FALSE)
-CTRL <- RunUMAP(CTRL, dims=1:50, verbose=FALSE)
-CTRL <- FindNeighbors(CTRL, dims=1:50)
-CTRL <- FindClusters(CTRL)
-
-TREAT <- SCTransform(TREAT, method="glmGamPoi", variable.features.n=3500, vars.to.regress=c("human.percent.mt", "mouse.percent.mt"))
-TREAT <- RunPCA(TREAT, npcs=50, verbose=FALSE)
-TREAT <- RunUMAP(TREAT, dims=1:50, verbose=FALSE)
-TREAT <- FindNeighbors(TREAT, dims=1:50)
-TREAT <- FindClusters(TREAT)
-```
-
-```{r
-for (i in groups) {
-  markers.roc <- FindAllMarkers(i, min.pct=0.005, logfc.threshold=0.25, test.use="roc")
-  markers.roc.thresholded <- dplyr::filter(markers.roc, myAUC>=0)
-  markers.roc.thresholded.grouped <- markers.roc.thresholded %>% group_by(cluster)
-  markers.roc.thresholded.grouped.sorted <- markers.roc.thresholded.grouped %>% arrange(desc(myAUC), by_group=TRUE)
-  write(markers.roc.thresholded.grouped.sorted, file=paste0(i, '_markers_clustered_01022022.csv'))
+list_of_experiments <- list(CTRL, TREAT)
+### What the following code does is essentially say "for CTRL, run this pipeline, and then for TREAT, run this pipeline
+for (i in list_of_experiments) {
+  i <- NormalizeData(i)
+  i <- CellCycleScoring(i, s.features=s_genes, g2m.features=g2m_genes, set.ident=TRUE)
+  i <- FindVariableFeatures(i, selection.method="vst", nfeatures=3000, verbose=FALSE)
+  i <- ScaleData(i)
+  i <- RunPCA(i)
 }
-```
-
-# Find and save CTRL and TREAT markers - min.cells=0.05, logfc=0.25
-```{r
-CTRL.markers.roc <- FindAllMarkers(CTRL, min.pct=0.005, logfc.threshold=0.25, test.use="roc")
-CTRL.markers.roc.thresholded <- dplyr::filter(CTRL.markers.roc, myAUC >= 0)
-CTRL.markers.roc.thresholded.grouped <- CTRL.markers.roc.thresholded %>% group_by(cluster)
-CTRL.markers.roc.thresholded.grouped.sorted <- CTRL.markers.roc.thresholded.grouped %>% arrange(desc(myAUC), by_group=TRUE)
-head(CTRL.markers.roc.thresholded.grouped.sorted)
-
-write.csv(CTRL.markers.roc.thresholded.grouped.sorted, file="CTRL_markers_clustered_01022022.csv")
-
-TREAT.markers.roc <- FindAllMarkers(TREAT, min.pct=0.005, logfc.threshold=0.25, test.use="roc")
-TREAT.markers.roc.thresholded <- dplyr::filter(TREAT.markers.roc, myAUC >= 0)
-TREAT.markers.roc.thresholded.grouped <- TREAT.markers.roc.thresholded %>% group_by(cluster)
-TREAT.markers.roc.thresholded.grouped.sorted <- TREAT.markers.roc.thresholded.grouped %>% arrange(desc(myAUC), by_group=TRUE)
-head(TREAT.markers.roc.thresholded.grouped.sorted)
-
-write.csv(TREAT.markers.roc.thresholded.grouped.sorted, file="TREAT_markers_clustered_01022022.csv")
-```
-
-```{r
-more_mouse_genes <- c("Cd8a", "Cd4", "Cd3d")
-more_mouse_genes <- lapply(1:length(more_mouse_genes), function(k) paste0('mm10---', more_mouse_genes[[k]]))
-more_mouse_genes
 ```
 
 
@@ -319,7 +203,7 @@ TREAT[["groups"]] <- "TREAT"
 combined <- merge(CTRL, TREAT)
 
 split_seurat <- SplitObject(combined, split.by="groups")
-split_seurat[["human.percent.mt"]] < NULL
+#split_seurat[["human.percent.mt"]] < NULL
 
 # In the few lines below, we split our data by "groups" (i.e., whether any particular piece of data is from the CTRL group or the TREAT group) and then we
 # normalize it, and find the 3500 most variable genes
@@ -424,72 +308,6 @@ plot_density(seurat_integrated, features=c("Foxp3", "Odc1"), joint=TRUE) + facet
 ElbowPlot(seurat_integrated, ndims=100)
 ```
 
-# seurat_integrated plots
-```{r
-seurat_integrated <- RunPCA(seurat_integrated, dims=1:50)
-seurat_integrated <- RunUMAP(seurat_integrated, dims=1:50)
-seurat_integrated <- FindNeighbors(seurat_integrated, dims=1:50)
-seurat_integrated <- FindClusters(seurat_integrated)
-#Idents(seurat_integrated) <- "integrated_snn_res.1.0"
-DimPlot(seurat_integrated, reduction="umap", label=TRUE, label.size=3)
-```
-# Find markers of CTRL vs TREAT
-```{r
-seurat_integrated@meta.data[["seurat_clusters"]] <- as.numeric(seurat_integrated@meta.data[["seurat_clusters"]])
-cell.8.markers <- FindMarkers(seurat_integrated, ident.1=8, group.by="groups", assay="RNA")
-write.csv(cell.8.markers %>% group_by(cluster), 'cluster_8_markers_seurat_integrated_01072022.csv')
-```
-
-
-
-
-
-# Analyzing biological and technical features/variation in clusters
-```{r}
-n_cells <- FetchData(seurat_integrated,
-                     vars=c("ident", "orig.ident")) %>%
-  dplyr::count(ident, orig.ident) %>%
-  tidyr::spread(ident, n)
-
-View(n_cells)
-
-DimPlot(seurat_integrated,
-        label=TRUE,
-        split.by="groups") + NoLegend()
-
-DimPlot(seurat_integrated,
-        label=TRUE,
-        group.by="groups",
-        split.by="Phase") + NoLegend()
-
-# "nUMI", "nGene", "S.Score", "G2M.Score", 
-nUMI_nGene_nFeature <- c("MT_genes")#, "nCount_RNA", "nFeature_RNA")
-nCount_sscore_g2mscore <- c("MT_genes", "S.Score", "G2M.Score")
-
-t_cells <- WhichCells(seurat_integrated, expression = Itgam > 0 & Cd4 > 0)
-
-cells <- subset(seurat_integrated, idents=c(17,9))
-
-#pdf("nCountRNA_sscore_g2mscore.pdf")
-FeaturePlot(cells,
-            reduction="umap",
-            features=nUMI_nGene_nFeature,
-            #cells=cells,
-            pt.size=0.4,
-            sort.cell=TRUE,
-            min.cutoff='q10',
-            label=FALSE,
-            split.by="groups")
-#dev.off()
-
-columns <- c(paste0("PC_", 1:3),
-             "ident",
-             "UMAP_1", "UMAP_2")
-pc_data <- FetchData(seurat_integrated,
-                     vars=columns)
-#FeaturePlot(seurat_integrated, reduction = "umap", features=pc_data, split.by="groups")
-```
-
 
 # To visualize the expression of different genes in the different groups across the cells, run this
 ```{r}
@@ -578,37 +396,6 @@ DimPlot(seurat_integrated, reduction="umap", label=TRUE)
 # Right side of '9', 'left bit of '0' potentially Macrophage3 - ('Ly6c2', 'Cxcl9', 'Il1b', H2-Ab1', 'H2-'DMb2', 'Mmp14', 'Cd38')
 # Bottom side of '3' potentially Neural cells/NPCs etc. ('Nedd4', 'Neurl3', 'Nenf')
 
-
-```{r}
-# Below, I have printed the first and second principal components (dims=1:2) of the data, each with the first most significant genes (nfeatures=5)
-print(seurat_integrated[["pca"]], dims=1:2, nfeatures=5)
-```
-
-
-```{r}
-seurat_obj = seurat_integrated
-signature_score_1 =
-  seurat_obj[c("Cd3d", "Trdc", "Trgc1", "Trgc2"),] %>%
-  Seurat::GetAssayData(assay="SCT", slot="data") %>%
-  colSums() %>%
-  scales::rescale(to=c(0,1))
-signature_score_2 =
-  seurat_obj[c("Cd8a", "Cd8b"),] %>%
-  Seurat::GetAssayData(assay="SCT", slot="data") %>%
-  colSums() %>%
-  scales::rescale(to=c(0,1))
-seurat_obj$signature_score = 
-  signature_score_1 - signature_score_2
-```
-
-```{r}
-splits = colnames(seurat_obj) %>%
-  split(seurat_obj$groups)
-min_size = splits %>%
-  lapply(function(x) sample(x, min_size)) %>%
-  unlist()
-seurat_obj = seurat_obj[, cell_subset]
-```
 
 
 # Run this first
