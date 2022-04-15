@@ -108,6 +108,7 @@ for (i in genes) {
   glue(TREAT[["{i}_genes"] <- GeneCounter(TREAT, pattern="i"))
 }
 
+# Delete the following lines if above loop works
 #CTRL[["Actb"]] <- GeneCounter(CTRL, pattern="Actb")
 #TREAT[["Actb"]] <- GeneCounter(TREAT, pattern="Actb")
 
